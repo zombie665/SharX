@@ -94,6 +94,13 @@ For issues, questions, or contributions, please refer to the project repository.
 
 По вопросам, проблемам или вкладу в проект обращайтесь в репозиторий проекта.
 
+## Authors / Авторы
+
+**Project Authors / Авторы проекта:**
+- @konspic
+- @alireza0
+- @MHSanaei
+
 ## Donate / Донаты 💵
 
 **Donate Wallet / Кошелек для донатов:**
@@ -104,12 +111,12 @@ For issues, questions, or contributions, please refer to the project repository.
 **Crypto / Криптовалюта:**
 - [Donate via NowPayments - MHSanaei](https://nowpayments.io/donation/hsanaei)
 - [Donate via NowPayments - Alireza7](https://nowpayments.io/donation/alireza7)
-- [Donate via Tribute](https://t.me/tribute/app?startapp=dDMW)
+- [Donate via Tribute - konspic](https://t.me/tribute/app?startapp=dDMW)
 
 **Fiat (Card, Bank, Cash App Pay, G Pay, Link) / Фиат (Карта, Банк, Cash App Pay, G Pay, Link):**
 - [Buy Me a Coffee - MHSanaei](https://buymeacoffee.com/mhsanaei)
 - [Buy Me a Coffee - Alireza7](https://buymeacoffee.com/alireza7)
-- [Donate via Tribute](https://t.me/tribute/app?startapp=dDMW)
+- [Donate via Tribute - konspic](https://t.me/tribute/app?startapp=dDMW)
 
 ---
 
