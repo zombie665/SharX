@@ -1,4 +1,4 @@
-# 3x-ui New
+# 3X-UI New
 
 [English](README_EN.md) | [Русский](README_RU.md)
 
@@ -14,7 +14,7 @@ Welcome to the next generation of 3x-ui! This version brings significant improve
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/konstpic/3x-ui-new.git
    cd 3x-ui-new
    ```
 

@@ -70,7 +70,7 @@ Welcome to the next generation of 3x-ui! This version brings significant improve
 
 1. **Clone or download this repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/konstpic/3x-ui-new.git
    cd 3x-ui-new
    ```
 
