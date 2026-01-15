@@ -99,3 +99,10 @@ For issues, questions, or contributions, please refer to the project repository.
 **Note**: This version uses Docker containers for easy deployment. All images are pre-built and ready to use.
 
 **Примечание**: Эта версия использует Docker-контейнеры для легкого развертывания. Все образы предварительно собраны и готовы к использованию.
+
+<div align="center">
+
+<!-- Liquid Glass Footer Section -->
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=0,2,3,5,30&height=300&section=footer&animation=fadeIn" width="100%"/>
+
+</div>
