@@ -2351,6 +2351,87 @@ curl -X POST "http://localhost:2053/panel/client/delDepletedClients" \
 
 ---
 
+### POST `/panel/client/clearHwid/{id}`
+
+Clear all HWIDs for a specific client.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | integer | Client entity ID |
+
+**Example Request:**
+
+```bash
+curl -X POST "http://localhost:2053/panel/client/clearHwid/1" \
+  -b cookies.txt
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "msg": "HWIDs cleared successfully"
+}
+```
+
+---
+
+### POST `/panel/client/clearAllHwids`
+
+Clear all HWIDs for all clients of the current user.
+
+**Example Request:**
+
+```bash
+curl -X POST "http://localhost:2053/panel/client/clearAllHwids" \
+  -b cookies.txt
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "msg": "Cleared 15 HWIDs successfully"
+}
+```
+
+---
+
+### POST `/panel/client/setHwidLimitAll`
+
+Set HWID limit for all clients of the current user.
+
+**Request Body:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `maxHwid` | integer | Yes | Maximum number of allowed devices (0 = unlimited) |
+| `enabled` | boolean | Yes | Whether HWID restriction is enabled |
+
+**Example Request:**
+
+```bash
+curl -X POST "http://localhost:2053/panel/client/setHwidLimitAll" \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{"maxHwid": 3, "enabled": true}'
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "msg": "Updated HWID limit for 10 clients"
+}
+```
+
+---
+
 ## 9. Client HWID
 
 Base path: `/panel/client/hwid`
