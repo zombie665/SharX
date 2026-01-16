@@ -1447,7 +1447,7 @@ uninstall() {
     echo "This will:"
     echo "  - Stop and remove all containers"
     echo "  - Remove Docker volumes (ALL DATA WILL BE LOST)"
-    echo "  - Remove installation directory"
+    echo "  - Remove configuration files"
     echo ""
     read -p "Are you sure you want to uninstall? [y/N]: " confirm
     
@@ -1462,12 +1462,28 @@ uninstall() {
         return 0
     fi
     
-    print_info "Uninstalling 3X-UI..."
+    print_info "Uninstalling 3X-UI Panel..."
     
+    # Stop and remove panel containers and volumes
     cd "$INSTALL_DIR" 2>/dev/null || true
     docker compose down -v 2>/dev/null || true
     
-    # Remove acme.sh certificates (optional - keep for other uses)
+    # Remove panel config file
+    rm -f "$INSTALL_DIR/.3xui-config" 2>/dev/null || true
+    
+    # Ask about node uninstall
+    if [[ -f "$NODE_DIR/.node-config" ]]; then
+        read -p "Also uninstall Node? [y/N]: " remove_node
+        if [[ "$remove_node" == "y" || "$remove_node" == "Y" ]]; then
+            print_info "Uninstalling Node..."
+            cd "$NODE_DIR" 2>/dev/null || true
+            docker compose down 2>/dev/null || true
+            rm -f "$NODE_DIR/.node-config" 2>/dev/null || true
+            print_success "Node uninstalled!"
+        fi
+    fi
+    
+    # Remove acme.sh certificates (optional)
     read -p "Remove acme.sh certificates? [y/N]: " remove_acme
     if [[ "$remove_acme" == "y" || "$remove_acme" == "Y" ]]; then
         rm -rf /root/cert 2>/dev/null || true
@@ -1475,10 +1491,18 @@ uninstall() {
         print_info "acme.sh certificates removed"
     fi
     
-    # Remove installation directory
-    rm -rf "$INSTALL_DIR"
+    # Remove local certificates (optional)
+    read -p "Remove local certificates from cert/ folders? [y/N]: " remove_local_cert
+    if [[ "$remove_local_cert" == "y" || "$remove_local_cert" == "Y" ]]; then
+        rm -f "$INSTALL_DIR/cert/"*.pem 2>/dev/null || true
+        rm -f "$NODE_DIR/cert/"*.pem 2>/dev/null || true
+        print_info "Local certificates removed"
+    fi
     
     print_success "3X-UI uninstalled successfully!"
+    echo ""
+    echo -e "${YELLOW}Note: Script files and directories are preserved.${NC}"
+    echo -e "${YELLOW}You can reinstall anytime by running: bash install.sh${NC}"
 }
 
 # Full installation wizard
