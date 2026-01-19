@@ -773,11 +773,13 @@ generate_https_env() {
     
     # Check if certificate files exist
     if [[ -f "$cert_dir/fullchain.pem" && -f "$cert_dir/privkey.pem" ]]; then
+        # Always add certificate files for both domain and IP certificates
         https_env="      XUI_WEB_CERT_FILE: /app/cert/fullchain.pem\n      XUI_WEB_KEY_FILE: /app/cert/privkey.pem\n"
         
-        # Add domain if available (from config or detect from certificate)
+        # Add domain only for domain certificates (not for IP certificates)
         local domain=""
         if load_config 2>/dev/null; then
+            # For domain certificates, add domain to env
             if [[ "$CERT_TYPE" == "letsencrypt-domain" && -n "$DOMAIN_OR_IP" ]]; then
                 # Remove https://, http:// and port if present
                 domain="${DOMAIN_OR_IP}"
@@ -789,6 +791,7 @@ generate_https_env() {
                     https_env="${https_env}      XUI_WEB_DOMAIN: $domain\n"
                 fi
             fi
+            # For IP certificates (letsencrypt-ip), we don't add domain - only cert files
         else
             # Try to extract domain from certificate if config not available
             if command -v openssl &>/dev/null && [[ -f "$cert_dir/fullchain.pem" ]]; then
@@ -798,6 +801,7 @@ generate_https_env() {
                 if [[ -z "$cert_domain" ]]; then
                     cert_domain=$(openssl x509 -in "$cert_dir/fullchain.pem" -noout -subject 2>/dev/null | sed -n 's/.*CN=\([^, ]*\).*/\1/p' | head -n 1)
                 fi
+                # Only add domain if it's not an IP address
                 if [[ -n "$cert_domain" ]] && ! is_ipv4 "$cert_domain" && ! is_ipv6 "$cert_domain"; then
                     https_env="${https_env}      XUI_WEB_DOMAIN: $cert_domain\n"
                 fi
@@ -1773,6 +1777,89 @@ update_services() {
     echo -e "${YELLOW}Note: Database was not restarted.${NC}"
 }
 
+# Get panel status for menu display
+get_panel_status() {
+    local panel_status=""
+    local panel_port=""
+    local panel_address=""
+    local is_running=false
+    
+    # Check if container exists and is running
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^3xui_app$"; then
+        is_running=true
+        panel_status="${GREEN}● Running${NC}"
+        
+        # Try to get environment variables from container
+        local env_vars=""
+        if docker inspect 3xui_app &>/dev/null; then
+            env_vars=$(docker inspect 3xui_app --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null)
+        fi
+        
+        # Extract port from environment or config
+        local env_port=""
+        if [[ -n "$env_vars" ]]; then
+            env_port=$(echo "$env_vars" | grep "^XUI_WEB_PORT=" | cut -d'=' -f2 | tr -d '\r\n')
+        fi
+        
+        # Extract domain from environment
+        local env_domain=""
+        if [[ -n "$env_vars" ]]; then
+            env_domain=$(echo "$env_vars" | grep "^XUI_WEB_DOMAIN=" | cut -d'=' -f2 | tr -d '\r\n')
+        fi
+        
+        # Check if SSL certificates are configured
+        local has_cert=false
+        if [[ -n "$env_vars" ]] && echo "$env_vars" | grep -q "^XUI_WEB_CERT_FILE="; then
+            has_cert=true
+        fi
+        
+        # Get port from environment, config, or default
+        if [[ -n "$env_port" ]]; then
+            panel_port="$env_port"
+        elif load_config 2>/dev/null; then
+            panel_port="$PANEL_PORT"
+        else
+            panel_port="2053"
+        fi
+        
+        # Determine address and protocol
+        local server_ip=$(get_server_ip)
+        local protocol="http"
+        
+        if [[ "$has_cert" == "true" ]]; then
+            protocol="https"
+            if [[ -n "$env_domain" ]]; then
+                panel_address="${protocol}://${env_domain}:${panel_port}"
+            elif load_config 2>/dev/null && [[ "$CERT_TYPE" == "letsencrypt-domain" && -n "$DOMAIN_OR_IP" ]]; then
+                panel_address="${protocol}://${DOMAIN_OR_IP}:${panel_port}"
+            elif load_config 2>/dev/null && [[ "$CERT_TYPE" == "letsencrypt-ip" && -n "$DOMAIN_OR_IP" ]]; then
+                panel_address="${protocol}://${DOMAIN_OR_IP}:${panel_port}"
+            else
+                panel_address="${protocol}://${server_ip}:${panel_port}"
+            fi
+        else
+            if load_config 2>/dev/null && [[ -n "$DOMAIN_OR_IP" ]] && ! is_ipv4 "$DOMAIN_OR_IP" && ! is_ipv6 "$DOMAIN_OR_IP"; then
+                panel_address="${protocol}://${DOMAIN_OR_IP}:${panel_port}"
+            else
+                panel_address="${protocol}://${server_ip}:${panel_port}"
+            fi
+        fi
+    else
+        panel_status="${RED}● Stopped${NC}"
+        # Try to get port from config
+        if load_config 2>/dev/null; then
+            panel_port="$PANEL_PORT"
+            local server_ip=$(get_server_ip)
+            panel_address="http://${server_ip}:${panel_port}"
+        else
+            panel_port="N/A"
+            panel_address="N/A"
+        fi
+    fi
+    
+    echo "$panel_status|$panel_port|$panel_address"
+}
+
 # Show service status
 show_status() {
     print_info "3X-UI Service Status:"
@@ -2489,6 +2576,21 @@ main_menu() {
         echo -e "${WHITE}                    Management Menu${NC}"
         echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
         echo ""
+        
+        # Display panel status
+        if [[ -f "$INSTALL_DIR/.3xui-config" ]] || docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^3xui_app$"; then
+            local status_info=$(get_panel_status)
+            local panel_status=$(echo "$status_info" | cut -d'|' -f1)
+            local panel_port=$(echo "$status_info" | cut -d'|' -f2)
+            local panel_address=$(echo "$status_info" | cut -d'|' -f3)
+            
+            echo -e "  ${WHITE}── Panel Status ──${NC}"
+            echo -e "  Status:  $(echo -e "$panel_status")"
+            echo -e "  Port:    ${CYAN}$panel_port${NC}"
+            echo -e "  Address: ${CYAN}$panel_address${NC}"
+            echo ""
+        fi
+        
         echo -e "  ${WHITE}── Panel ──${NC}"
         echo -e "  ${GREEN}1)${NC}  Install Panel"
         echo -e "  ${GREEN}2)${NC}  Update Panel"
