@@ -2594,6 +2594,177 @@ get_panel_status() {
     echo "$panel_status|$panel_port|$panel_address|$web_path"
 }
 
+# Show instructions
+show_instructions() {
+    if ! load_config; then
+        print_error "Configuration not found. Please run installation first."
+        return 1
+    fi
+    
+    print_banner
+    echo ""
+    echo -e "${WHITE}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${WHITE}║                        INSTRUCTIONS                          ║${NC}"
+    echo -e "${WHITE}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    
+    # Get current panel address
+    local status_info=$(get_panel_status)
+    local panel_address=$(echo "$status_info" | cut -d'|' -f3)
+    local panel_port=$(echo "$status_info" | cut -d'|' -f2)
+    
+    # Get subscription port
+    local sub_port_env=""
+    if [[ -f "$INSTALL_DIR/$COMPOSE_FILE" ]]; then
+        sub_port_env=$(read_env_from_compose "XUI_SUB_PORT" 2>/dev/null || echo "")
+    fi
+    local actual_sub_port=${sub_port_env:-$SUB_PORT}
+    
+    # Get subscription address
+    local sub_address=""
+    local sub_protocol="http"
+    if [[ "$CERT_TYPE" != "none" ]]; then
+        sub_protocol="https"
+        local sub_domain_env=""
+        if [[ -f "$INSTALL_DIR/$COMPOSE_FILE" ]]; then
+            sub_domain_env=$(read_env_from_compose "XUI_SUB_DOMAIN" 2>/dev/null || echo "")
+        fi
+        if [[ -n "$sub_domain_env" ]]; then
+            sub_address="${sub_protocol}://${sub_domain_env}:${actual_sub_port}"
+        elif [[ "$CERT_TYPE" == "letsencrypt-domain" && -n "$DOMAIN_OR_IP" ]]; then
+            sub_address="${sub_protocol}://${DOMAIN_OR_IP}:${actual_sub_port}"
+        else
+            local server_ip=$(get_server_ip)
+            sub_address="${sub_protocol}://${server_ip}:${actual_sub_port}"
+        fi
+    else
+        local server_ip=$(get_server_ip)
+        sub_address="${sub_protocol}://${server_ip}:${actual_sub_port}"
+    fi
+    
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "${WHITE}Panel Access:${NC}"
+    if [[ -n "$panel_address" ]] && [[ "$panel_address" != "N/A" ]]; then
+        echo -e "  ${GREEN}${panel_address}${NC}"
+    else
+        local server_ip=$(get_server_ip)
+        echo -e "  ${GREEN}http://${server_ip}:${panel_port}${NC}"
+    fi
+    echo ""
+    echo -e "${WHITE}Subscription Service:${NC}"
+    echo -e "  ${GREEN}${sub_address}${NC}"
+    echo ""
+    echo -e "${WHITE}Login credentials:${NC}"
+    echo -e "  Username:  ${CYAN}admin${NC}"
+    echo -e "  Password:  ${CYAN}admin${NC}"
+    echo ""
+    echo -e "${YELLOW}⚠️  IMPORTANT: Please change your password after first login!${NC}"
+    echo ""
+    
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "${WHITE}Quick Start Guide:${NC}"
+    echo -e "  1. ${CYAN}Access the panel${NC} using the address above"
+    echo -e "  2. ${CYAN}Login${NC} with default credentials (admin/admin)"
+    echo -e "  3. ${CYAN}Change password${NC} immediately in Settings → Account"
+    echo -e "  4. ${CYAN}Add inbound${NC} in Inbounds section to start using the service"
+    echo -e "  5. ${CYAN}Create users${NC} and share subscription links"
+    echo -e "  6. ${CYAN}Connect nodes${NC} (optional): Install node service and register via API"
+    echo ""
+    
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "${WHITE}Firewall Configuration:${NC}"
+    echo -e "  Make sure these ports are open in your firewall:"
+    echo -e "    - ${CYAN}${panel_port}${NC} (Panel Web UI)"
+    echo -e "    - ${CYAN}${actual_sub_port}${NC} (Subscription service)"
+    if [[ "$CERT_TYPE" != "none" ]]; then
+        echo -e "    - ${CYAN}80${NC} (HTTP, for Let's Encrypt renewal)"
+    fi
+    echo -e "    - ${CYAN}443${NC} (HTTPS, if you plan to use it for inbounds)"
+    echo ""
+    echo -e "  ${YELLOW}Example UFW commands:${NC}"
+    echo -e "    ${CYAN}ufw allow ${panel_port}/tcp${NC}"
+    echo -e "    ${CYAN}ufw allow ${actual_sub_port}/tcp${NC}"
+    if [[ "$CERT_TYPE" != "none" ]]; then
+        echo -e "    ${CYAN}ufw allow 80/tcp${NC}"
+    fi
+    echo -e "    ${CYAN}ufw allow 443/tcp${NC}"
+    echo ""
+    
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "${WHITE}Backup & Recovery:${NC}"
+    echo -e "  ${CYAN}Database location:${NC} ${GREEN}\$PWD/postgres_data${NC}"
+    echo ""
+    echo -e "  ${CYAN}Create backup:${NC}"
+    echo -e "    ${CYAN}cd $INSTALL_DIR${NC}"
+    echo -e "    ${CYAN}docker compose exec postgres pg_dump -U xui_user xui_db > backup_\$(date +%Y%m%d_%H%M%S).sql${NC}"
+    echo ""
+    echo -e "  ${CYAN}Restore backup:${NC}"
+    echo -e "    ${CYAN}docker compose exec -T postgres psql -U xui_user -d xui_db < backup.sql${NC}"
+    echo ""
+    echo -e "  ${CYAN}Recover database password:${NC}"
+    echo -e "    Password is saved in: ${CYAN}$INSTALL_DIR/.3xui-config${NC}"
+    echo -e "    Or check docker-compose.yml: ${CYAN}XUI_DB_PASSWORD${NC}"
+    echo ""
+    
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "${WHITE}Monitoring & Logging:${NC}"
+    echo -e "  ${CYAN}View panel logs:${NC}"
+    echo -e "    ${CYAN}docker compose logs -f 3xui${NC}"
+    echo ""
+    echo -e "  ${CYAN}View database logs:${NC}"
+    echo -e "    ${CYAN}docker compose logs -f postgres${NC}"
+    echo ""
+    echo -e "  ${CYAN}View all logs:${NC}"
+    echo -e "    ${CYAN}docker compose logs -f${NC}"
+    echo ""
+    echo -e "  ${CYAN}Check service status:${NC}"
+    echo -e "    ${CYAN}docker compose ps${NC}"
+    echo ""
+    echo -e "  ${CYAN}Check resource usage:${NC}"
+    echo -e "    ${CYAN}docker stats${NC}"
+    echo ""
+    
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "${WHITE}Advanced Configuration:${NC}"
+    if [[ "$CERT_TYPE" != "none" ]]; then
+        echo -e "  ${CYAN}Separate domain for subscription:${NC}"
+        echo -e "    Edit ${CYAN}docker-compose.yml${NC} and set:"
+        echo -e "      ${CYAN}XUI_SUB_DOMAIN: sub.example.com${NC}"
+        echo -e "      ${CYAN}XUI_SUB_CERT_FILE: /app/cert/sub-fullchain.pem${NC}"
+        echo -e "      ${CYAN}XUI_SUB_KEY_FILE: /app/cert/sub-privkey.pem${NC}"
+        echo -e "    Then restart: ${CYAN}docker compose restart 3xui${NC}"
+        echo ""
+    fi
+    echo -e "  ${CYAN}Change panel domain/port:${NC}"
+    echo -e "    Edit ${CYAN}docker-compose.yml${NC} environment variables:"
+    echo -e "      ${CYAN}XUI_WEB_DOMAIN${NC}, ${CYAN}XUI_WEB_PORT${NC}, ${CYAN}XUI_WEB_LISTEN${NC}"
+    echo -e "    Then restart: ${CYAN}docker compose restart 3xui${NC}"
+    echo ""
+    echo -e "  ${CYAN}Change subscription port/path:${NC}"
+    echo -e "    Edit ${CYAN}docker-compose.yml${NC} environment variables:"
+    echo -e "      ${CYAN}XUI_SUB_PORT${NC}, ${CYAN}XUI_SUB_PATH${NC}, ${CYAN}XUI_SUB_DOMAIN${NC}"
+    echo -e "    Then restart: ${CYAN}docker compose restart 3xui${NC}"
+    echo ""
+    
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "${WHITE}Management:${NC}"
+    echo -e "  ${CYAN}bash install.sh${NC} - open management menu"
+    echo ""
+    echo -e "  ${CYAN}Common commands:${NC}"
+    echo -e "    ${CYAN}docker compose restart 3xui${NC} - restart panel"
+    echo -e "    ${CYAN}docker compose restart postgres${NC} - restart database"
+    echo -e "    ${CYAN}docker compose down${NC} - stop all services"
+    echo -e "    ${CYAN}docker compose up -d${NC} - start all services"
+    echo ""
+}
+
 # Show service status
 show_status() {
     print_info "3X-UI Service Status:"
@@ -3442,114 +3613,9 @@ install_wizard() {
     fi
     echo ""
     
-    # Instructions section
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "${WHITE}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${WHITE}║                        INSTRUCTIONS                          ║${NC}"
-    echo -e "${WHITE}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    echo ""
-    
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-    echo -e "${WHITE}Quick Start Guide:${NC}"
-    echo -e "  1. ${CYAN}Access the panel${NC} using the address above"
-    echo -e "  2. ${CYAN}Login${NC} with default credentials (admin/admin)"
-    echo -e "  3. ${CYAN}Change password${NC} immediately in Settings → Account"
-    echo -e "  4. ${CYAN}Add inbound${NC} in Inbounds section to start using the service"
-    echo -e "  5. ${CYAN}Create users${NC} and share subscription links"
-    echo -e "  6. ${CYAN}Connect nodes${NC} (optional): Install node service and register via API"
-    echo ""
-    
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-    echo -e "${WHITE}Firewall Configuration:${NC}"
-    echo -e "  Make sure these ports are open in your firewall:"
-    echo -e "    - ${CYAN}${panel_port}${NC} (Panel Web UI)"
-    echo -e "    - ${CYAN}${actual_sub_port}${NC} (Subscription service)"
-    if [[ "$cert_type" != "none" ]]; then
-        echo -e "    - ${CYAN}80${NC} (HTTP, for Let's Encrypt renewal)"
-    fi
-    echo -e "    - ${CYAN}443${NC} (HTTPS, if you plan to use it for inbounds)"
-    echo ""
-    echo -e "  ${YELLOW}Example UFW commands:${NC}"
-    echo -e "    ${CYAN}ufw allow ${panel_port}/tcp${NC}"
-    echo -e "    ${CYAN}ufw allow ${actual_sub_port}/tcp${NC}"
-    if [[ "$cert_type" != "none" ]]; then
-        echo -e "    ${CYAN}ufw allow 80/tcp${NC}"
-    fi
-    echo -e "    ${CYAN}ufw allow 443/tcp${NC}"
-    echo ""
-    
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-    echo -e "${WHITE}Backup & Recovery:${NC}"
-    echo -e "  ${CYAN}Database location:${NC} ${GREEN}\$PWD/postgres_data${NC}"
-    echo ""
-    echo -e "  ${CYAN}Create backup:${NC}"
-    echo -e "    ${CYAN}cd $INSTALL_DIR${NC}"
-    echo -e "    ${CYAN}docker compose exec postgres pg_dump -U xui_user xui_db > backup_$(date +%Y%m%d_%H%M%S).sql${NC}"
-    echo ""
-    echo -e "  ${CYAN}Restore backup:${NC}"
-    echo -e "    ${CYAN}docker compose exec -T postgres psql -U xui_user -d xui_db < backup.sql${NC}"
-    echo ""
-    echo -e "  ${CYAN}Recover database password:${NC}"
-    echo -e "    Password is saved in: ${CYAN}$INSTALL_DIR/.3xui-config${NC}"
-    echo -e "    Or check docker-compose.yml: ${CYAN}XUI_DB_PASSWORD${NC}"
-    echo ""
-    
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-    echo -e "${WHITE}Monitoring & Logging:${NC}"
-    echo -e "  ${CYAN}View panel logs:${NC}"
-    echo -e "    ${CYAN}docker compose logs -f 3xui${NC}"
-    echo ""
-    echo -e "  ${CYAN}View database logs:${NC}"
-    echo -e "    ${CYAN}docker compose logs -f postgres${NC}"
-    echo ""
-    echo -e "  ${CYAN}View all logs:${NC}"
-    echo -e "    ${CYAN}docker compose logs -f${NC}"
-    echo ""
-    echo -e "  ${CYAN}Check service status:${NC}"
-    echo -e "    ${CYAN}docker compose ps${NC}"
-    echo ""
-    echo -e "  ${CYAN}Check resource usage:${NC}"
-    echo -e "    ${CYAN}docker stats${NC}"
-    echo ""
-    
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-    echo -e "${WHITE}Advanced Configuration:${NC}"
-    if [[ "$cert_type" != "none" ]]; then
-        echo -e "  ${CYAN}Separate domain for subscription:${NC}"
-        echo -e "    Edit ${CYAN}docker-compose.yml${NC} and set:"
-        echo -e "      ${CYAN}XUI_SUB_DOMAIN: sub.example.com${NC}"
-        echo -e "      ${CYAN}XUI_SUB_CERT_FILE: /app/cert/sub-fullchain.pem${NC}"
-        echo -e "      ${CYAN}XUI_SUB_KEY_FILE: /app/cert/sub-privkey.pem${NC}"
-        echo -e "    Then restart: ${CYAN}docker compose restart 3xui${NC}"
-        echo ""
-    fi
-    echo -e "  ${CYAN}Change panel domain/port:${NC}"
-    echo -e "    Edit ${CYAN}docker-compose.yml${NC} environment variables:"
-    echo -e "      ${CYAN}XUI_WEB_DOMAIN${NC}, ${CYAN}XUI_WEB_PORT${NC}, ${CYAN}XUI_WEB_LISTEN${NC}"
-    echo -e "    Then restart: ${CYAN}docker compose restart 3xui${NC}"
-    echo ""
-    echo -e "  ${CYAN}Change subscription port/path:${NC}"
-    echo -e "    Edit ${CYAN}docker-compose.yml${NC} environment variables:"
-    echo -e "      ${CYAN}XUI_SUB_PORT${NC}, ${CYAN}XUI_SUB_PATH${NC}, ${CYAN}XUI_SUB_DOMAIN${NC}"
-    echo -e "    Then restart: ${CYAN}docker compose restart 3xui${NC}"
-    echo ""
-    
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-    echo -e "${WHITE}Management:${NC}"
-    echo -e "  ${CYAN}bash install.sh${NC} - open management menu"
-    echo ""
-    echo -e "  ${CYAN}Common commands:${NC}"
-    echo -e "    ${CYAN}docker compose restart 3xui${NC} - restart panel"
-    echo -e "    ${CYAN}docker compose restart postgres${NC} - restart database"
-    echo -e "    ${CYAN}docker compose down${NC} - stop all services"
-    echo -e "    ${CYAN}docker compose up -d${NC} - start all services"
+    echo -e "${GREEN}Installation completed!${NC}"
+    echo -e "${CYAN}For detailed instructions, select option 16) Instructions from the menu.${NC}"
     echo ""
 }
 
@@ -3600,6 +3666,9 @@ main_menu() {
         echo -e "  ${YELLOW}14)${NC} Remove Panel Port"
         echo -e "  ${YELLOW}15)${NC} Reset Panel to Defaults"
         echo ""
+        echo -e "  ${WHITE}── Information ──${NC}"
+        echo -e "  ${CYAN}16)${NC} Instructions"
+        echo ""
         echo -e "  ${WHITE}── Node ──${NC}"
         echo -e "  ${BLUE}20)${NC} Install Node"
         echo -e "  ${BLUE}21)${NC} Update Node"
@@ -3641,6 +3710,7 @@ main_menu() {
             13) add_panel_port ;;
             14) remove_panel_port ;;
             15) reset_panel ;;
+            16) show_instructions ;;
             
             # Node options
             20) install_node_wizard ;;
