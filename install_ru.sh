@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================
-# 3X-UI NEW Скрипт установки (Русская версия)
+# SharX Скрипт установки (Русская версия)
 # Author: @konspic
 # Version: 3.0.0b
 # ============================================
@@ -562,7 +562,7 @@ setup_ssl_certificate() {
     ~/.acme.sh/acme.sh --installcert -d ${domain} \
         --key-file ${acmeCertPath}/privkey.pem \
         --fullchain-file ${acmeCertPath}/fullchain.pem \
-        --reloadcmd "cp ${acmeCertPath}/privkey.pem ${cert_dir}/ && cp ${acmeCertPath}/fullchain.pem ${cert_dir}/ && cd ${INSTALL_DIR} && docker compose restart 3xui 2>/dev/null || true" >/dev/null 2>&1
+        --reloadcmd "cp ${acmeCertPath}/privkey.pem ${cert_dir}/ && cp ${acmeCertPath}/fullchain.pem ${cert_dir}/ && cd ${INSTALL_DIR} && docker compose restart sharx 2>/dev/null || true" >/dev/null 2>&1
     
     if [ $? -ne 0 ]; then
         print_warning "Команда установки сертификата имела проблемы, проверка файлов..."
@@ -670,7 +670,7 @@ setup_ip_certificate() {
     ~/.acme.sh/acme.sh --installcert -d ${ipv4} \
         --key-file "${acmeCertDir}/privkey.pem" \
         --fullchain-file "${acmeCertDir}/fullchain.pem" \
-        --reloadcmd "cp ${acmeCertDir}/privkey.pem ${cert_dir}/ && cp ${acmeCertDir}/fullchain.pem ${cert_dir}/ && cd ${INSTALL_DIR} && docker compose restart 3xui 2>/dev/null || true" 2>&1 || true
+        --reloadcmd "cp ${acmeCertDir}/privkey.pem ${cert_dir}/ && cp ${acmeCertDir}/fullchain.pem ${cert_dir}/ && cd ${INSTALL_DIR} && docker compose restart sharx 2>/dev/null || true" 2>&1 || true
 
     # Verify certificate files exist
     if [[ ! -f "${acmeCertDir}/fullchain.pem" || ! -f "${acmeCertDir}/privkey.pem" ]]; then
@@ -1207,9 +1207,9 @@ create_compose_host() {
     
     cat > "$INSTALL_DIR/$COMPOSE_FILE" << EOF
 services:
-  3xui:
+  sharx:
     image: registry.konstpic.ru/3x-ui/3xui:3.0.0b
-    container_name: 3xui_app
+    container_name: sharx_app
     network_mode: host
     volumes:
       - \$PWD/cert/:/app/cert/
@@ -1237,7 +1237,7 @@ $(echo -e "$env_vars")
 
   postgres:
     image: registry.konstpic.ru/3x-ui/postgres:16-alpine
-    container_name: 3xui_postgres
+    container_name: sharx_postgres
     network_mode: host
     environment:
       POSTGRES_USER: xui_user
@@ -1280,9 +1280,9 @@ create_compose_bridge() {
     
     cat > "$INSTALL_DIR/$COMPOSE_FILE" << EOF
 services:
-  3xui:
+  sharx:
     image: registry.konstpic.ru/3x-ui/3xui:3.0.0b
-    container_name: 3xui_app
+    container_name: sharx_app
     ports:
 $(echo -e "$ports_section")
     volumes:
@@ -1326,7 +1326,7 @@ $(echo -e "$env_vars")
 
   postgres:
     image: registry.konstpic.ru/3x-ui/postgres:16-alpine
-    container_name: 3xui_postgres
+    container_name: sharx_postgres
     ports:
       - "5432:5432"
     environment:
@@ -1365,7 +1365,7 @@ create_node_compose_host() {
 services:
   node:
     image: registry.konstpic.ru/3x-ui/node:3.0.0b
-    container_name: 3x-ui-node
+    container_name: sharx-node
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -1400,7 +1400,7 @@ create_node_compose_bridge() {
 services:
   node:
     image: registry.konstpic.ru/3x-ui/node:3.0.0b
-    container_name: 3x-ui-node
+    container_name: sharx-node
     restart: unless-stopped
     ports:
 $(echo -e "$ports_section")
@@ -1433,7 +1433,7 @@ save_node_config() {
     local xray_ports=("$@")
     
     cat > "$NODE_DIR/.node-config" << EOF
-# 3X-UI Node Configuration
+# SharX Node Configuration
 # Generated: $(date)
 
 NODE_PORT=$node_port
@@ -1584,7 +1584,7 @@ install_node_wizard() {
     print_banner
     echo ""
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${WHITE}          3X-UI Node Installation Wizard${NC}"
+    echo -e "${WHITE}          SharX Мастер установки узла${NC}"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
     
@@ -1593,15 +1593,15 @@ install_node_wizard() {
     
     # Step 1: Install Docker
     echo ""
-    echo -e "${PURPLE}[Step 1/4]${NC} Docker Installation"
+    echo -e "${PURPLE}[Шаг 1/4]${NC} Установка Docker"
     install_docker
     install_docker_compose
     
     # Step 2: Network mode
     echo ""
-    echo -e "${PURPLE}[Step 2/4]${NC} Network Configuration"
-    echo -e "${CYAN}Choose network mode:${NC}"
-    echo "1) Host network (recommended for nodes)"
+    echo -e "${PURPLE}[Шаг 2/4]${NC} Настройка сети"
+    echo -e "${CYAN}Выберите режим сети:${NC}"
+    echo "1) Сеть хоста (рекомендуется для узлов)"
     echo "   - Прямой доступ ко всем портам"
     echo "   - Лучшая производительность"
     echo ""
@@ -1623,20 +1623,20 @@ install_node_wizard() {
     
     if [[ "$network_mode" == "bridge" ]]; then
         echo ""
-        echo -e "${PURPLE}[Step 3/4]${NC} Port Configuration"
+        echo -e "${PURPLE}[Шаг 3/4]${NC} Настройка портов"
         
         # Validate and get API port
-        node_port=$(prompt_port "$DEFAULT_NODE_PORT" "Node API")
+        node_port=$(prompt_port "$DEFAULT_NODE_PORT" "API узла")
         if [[ $? -ne 0 ]]; then
-            print_error "Port configuration failed"
+            print_error "Ошибка настройки портов"
             exit 1
         fi
         
         # Ask for Xray ports
         echo ""
-        echo -e "${CYAN}Add Xray inbound ports?${NC}"
-        echo -e "${YELLOW}These ports will be used for Xray traffic (e.g., 443, 8443, 2053)${NC}"
-        read -p "Add Xray ports? [y/N]: " add_xray
+        echo -e "${CYAN}Добавить порты для входящих подключений Xray?${NC}"
+        echo -e "${YELLOW}Эти порты будут использоваться для трафика Xray (например, 443, 8443, 2053)${NC}"
+        read -p "Добавить порты Xray? [y/N]: " add_xray
         
         if [[ "$add_xray" == "y" || "$add_xray" == "Y" ]]; then
             while true; do
@@ -1660,20 +1660,20 @@ install_node_wizard() {
         fi
     else
         echo ""
-        echo -e "${PURPLE}[Step 3/4]${NC} Port Configuration"
-        echo -e "${YELLOW}Using host network - node will listen on port 8080 by default${NC}"
+        echo -e "${PURPLE}[Шаг 3/4]${NC} Настройка портов"
+        echo -e "${YELLOW}Используется сеть хоста - узел будет слушать порт 8080 по умолчанию${NC}"
         node_port=8080
     fi
     
     # Step 4: SSL Certificate
     echo ""
-    echo -e "${PURPLE}[Step 4/4]${NC} SSL Certificate Configuration"
+    echo -e "${PURPLE}[Шаг 4/4]${NC} Настройка SSL сертификата"
     local server_ip=$(get_server_ip)
-    echo -e "Your server IP: ${GREEN}$server_ip${NC}"
+    echo -e "IPv4 вашего сервера: ${GREEN}$server_ip${NC}"
     
     local detected_ipv6=$(get_server_ipv6)
     if [[ -n "$detected_ipv6" ]]; then
-        echo -e "Your server IPv6: ${GREEN}$detected_ipv6${NC}"
+        echo -e "IPv6 вашего сервера: ${GREEN}$detected_ipv6${NC}"
     fi
     
     # Create node directory structure
@@ -1828,12 +1828,12 @@ NODECONFIG
     print_banner
     echo ""
     echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║            Node Installation Completed Successfully!         ║${NC}"
+    echo -e "${GREEN}║         Установка узла успешно завершена!                  ║${NC}"
     echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "${WHITE}Node is now running!${NC}"
+    echo -e "${WHITE}Узел теперь запущен!${NC}"
     echo -e "  Порт API: ${GREEN}$node_port${NC}"
     echo -e "  Сеть:     ${GREEN}$network_mode${NC}"
     echo ""
@@ -1841,9 +1841,9 @@ NODECONFIG
     if [[ "$cert_type" != "none" ]]; then
         echo -e "${GREEN}✓ SSL сертификат выпущен и сохранен в папку node/cert/${NC}"
         if [[ "$cert_type" == "letsencrypt-ip" ]]; then
-            echo -e "${YELLOW}  (IP certificate valid ~6 days, auto-renews via acme.sh)${NC}"
+            echo -e "${YELLOW}  (IP сертификат действителен ~6 дней, автоматически обновляется через acme.sh)${NC}"
         elif [[ "$cert_type" == "letsencrypt-domain" ]]; then
-            echo -e "${YELLOW}  (domain certificate valid 90 days, auto-renews via acme.sh)${NC}"
+            echo -e "${YELLOW}  (доменный сертификат действителен 90 дней, автоматически обновляется через acme.sh)${NC}"
         fi
         echo ""
     fi
@@ -2154,7 +2154,7 @@ save_config() {
     local additional_ports=("$@")
     
     cat > "$INSTALL_DIR/.3xui-config" << EOF
-# 3X-UI Configuration
+# SharX Configuration
 # Generated: $(date)
 
 PANEL_PORT=$panel_port
@@ -2185,7 +2185,7 @@ load_config() {
 
 # Start services
 start_services() {
-    print_info "Starting 3X-UI services..."
+    print_info "Запуск сервисов SharX..."
     cd "$INSTALL_DIR"
     docker compose up -d
     
@@ -2202,7 +2202,7 @@ start_services() {
 
 # Stop services
 stop_services() {
-    print_info "Stopping 3X-UI services..."
+    print_info "Остановка сервисов SharX..."
     cd "$INSTALL_DIR"
     docker compose down
     print_success "Services stopped!"
@@ -2258,24 +2258,24 @@ update_services() {
     done
     
     echo ""
-    print_info "Обновление панели 3X-UI..."
+    print_info "Обновление панели SharX..."
     cd "$INSTALL_DIR"
     
     print_info "Шаг 1/3: Загрузка нового образа панели..."
-    docker compose pull 3xui
+    docker compose pull sharx
     
     print_info "Шаг 2/3: Остановка и удаление старого контейнера..."
-    docker compose stop 3xui
-    docker compose rm -f 3xui
+    docker compose stop sharx
+    docker compose rm -f sharx
     
     print_info "Шаг 3/3: Запуск панели с новым образом..."
-    docker compose up -d 3xui
+    docker compose up -d sharx
     
     # Cleanup old images
     print_info "Очистка старых образов..."
     docker image prune -f
     
-    print_success "Панель 3X-UI успешно обновлена!"
+    print_success "Панель SharX успешно обновлена!"
     echo -e "${YELLOW}Примечание: База данных не была перезапущена.${NC}"
 }
 
@@ -2289,8 +2289,8 @@ get_webpath_from_db() {
     local webpath=""
     
     # Try to get database credentials from container environment
-    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^3xui_app$"; then
-        local env_vars=$(docker inspect 3xui_app --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null)
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_app$"; then
+        local env_vars=$(docker inspect sharx_app --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null)
         if [[ -n "$env_vars" ]]; then
             db_host=$(echo "$env_vars" | grep "^XUI_DB_HOST=" | cut -d'=' -f2 | tr -d '\r\n')
             db_port=$(echo "$env_vars" | grep "^XUI_DB_PORT=" | cut -d'=' -f2 | tr -d '\r\n')
@@ -2325,9 +2325,9 @@ get_webpath_from_db() {
     
     # Try to get webBasePath from database
     # First try via docker exec to postgres container
-    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^3xui_postgres$"; then
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_postgres$"; then
         # Use docker exec to connect to postgres container
-        webpath=$(docker exec 3xui_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -t -c "SELECT value FROM settings WHERE key = 'webBasePath';" 2>/dev/null | tr -d ' \r\n')
+        webpath=$(docker exec sharx_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -t -c "SELECT value FROM settings WHERE key = 'webBasePath';" 2>/dev/null | tr -d ' \r\n')
     elif command -v psql &>/dev/null && [[ "$db_host" == "127.0.0.1" ]] || [[ "$db_host" == "localhost" ]]; then
         # Try direct psql connection (for host network mode)
         export PGPASSWORD="$db_password"
@@ -2353,14 +2353,14 @@ update_ssl_settings_in_db() {
     local db_name="xui_db"
     
     # Check if postgres container is running
-    if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^3xui_postgres$"; then
+    if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_postgres$"; then
         # SSL settings will be passed via environment variables in docker-compose
         print_info "SSL settings will be applied via environment variables on panel start."
         return 0
     fi
     
     # Check if settings table exists and has data (panel needs to run first to create schema)
-    local table_exists=$(docker exec 3xui_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -t -c \
+    local table_exists=$(docker exec sharx_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -t -c \
         "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'settings');" 2>/dev/null | tr -d ' \r\n')
     
     if [[ "$table_exists" != "t" ]]; then
@@ -2371,7 +2371,7 @@ update_ssl_settings_in_db() {
     fi
     
     # Check if there are any settings records
-    local settings_count=$(docker exec 3xui_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -t -c \
+    local settings_count=$(docker exec sharx_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -t -c \
         "SELECT COUNT(*) FROM settings WHERE key IN ('webCertFile', 'webKeyFile');" 2>/dev/null | tr -d ' \r\n')
     
     if [[ "$settings_count" == "0" ]] || [[ -z "$settings_count" ]]; then
@@ -2387,11 +2387,11 @@ update_ssl_settings_in_db() {
     print_info "Updating SSL settings in database..."
     
     # Update webCertFile
-    docker exec 3xui_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -c \
+    docker exec sharx_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -c \
         "UPDATE settings SET value = '$cert_file_escaped' WHERE key = 'webCertFile';" 2>/dev/null
     
     # Update webKeyFile
-    docker exec 3xui_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -c \
+    docker exec sharx_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -c \
         "UPDATE settings SET value = '$key_file_escaped' WHERE key = 'webKeyFile';" 2>/dev/null
     
     if [ $? -eq 0 ]; then
@@ -2509,15 +2509,46 @@ get_panel_status() {
     local web_path=""
     local is_running=false
     
-    # Check if container exists and is running
-    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^3xui_app$"; then
-        is_running=true
-        panel_status="${GREEN}● Запущена${NC}"
+    # Check if container exists
+    if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_app$"; then
+        # Get actual container state
+        local container_state=$(docker inspect --format='{{.State.Status}}' sharx_app 2>/dev/null)
+        local container_restarting=$(docker inspect --format='{{.State.Restarting}}' sharx_app 2>/dev/null)
+        local container_exit_code=$(docker inspect --format='{{.State.ExitCode}}' sharx_app 2>/dev/null)
         
-        # Try to get environment variables from container
+        # Determine status based on actual state
+        case "$container_state" in
+            running)
+                if [[ "$container_restarting" == "true" ]]; then
+                    panel_status="${YELLOW}● Перезапускается${NC}"
+                    is_running=false
+                else
+                    panel_status="${GREEN}● Запущена${NC}"
+                    is_running=true
+                fi
+                ;;
+            restarting)
+                panel_status="${YELLOW}● Перезапускается${NC}"
+                is_running=false
+                ;;
+            exited|stopped)
+                if [[ "$container_exit_code" != "0" ]]; then
+                    panel_status="${RED}● Ошибка (Код выхода: $container_exit_code)${NC}"
+                else
+                    panel_status="${RED}● Остановлена${NC}"
+                fi
+                is_running=false
+                ;;
+            *)
+                panel_status="${RED}● $container_state${NC}"
+                is_running=false
+                ;;
+        esac
+        
+        # Try to get environment variables from container (only if container is actually running)
         local env_vars=""
-        if docker inspect 3xui_app &>/dev/null; then
-            env_vars=$(docker inspect 3xui_app --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null)
+        if [[ "$is_running" == "true" ]] && docker inspect sharx_app &>/dev/null; then
+            env_vars=$(docker inspect sharx_app --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null)
         fi
         
         # Extract port from environment or config
@@ -2538,8 +2569,10 @@ get_panel_status() {
             has_cert=true
         fi
         
-        # Get webBasePath from database
-        web_path=$(get_webpath_from_db)
+        # Get webBasePath from database (only if running)
+        if [[ "$is_running" == "true" ]]; then
+            web_path=$(get_webpath_from_db)
+        fi
         
         # Get port from environment, config, or default
         if [[ -n "$env_port" ]]; then
@@ -2580,7 +2613,9 @@ get_panel_status() {
             panel_address="${panel_address}/${web_path_clean}"
         fi
     else
-        panel_status="${RED}● Остановлена${NC}"
+        # Container doesn't exist
+        panel_status="${RED}● Не установлена${NC}"
+        is_running=false
         # Try to get port from config
         if load_config 2>/dev/null; then
             panel_port="$PANEL_PORT"
@@ -2593,6 +2628,191 @@ get_panel_status() {
     fi
     
     echo "$panel_status|$panel_port|$panel_address|$web_path"
+}
+
+# Get database status for menu display
+get_db_status() {
+    local db_status=""
+    local db_port="5432"
+    local db_size=""
+    
+    # Check if container exists
+    if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_postgres$"; then
+        # Get actual container state
+        local container_state=$(docker inspect --format='{{.State.Status}}' sharx_postgres 2>/dev/null)
+        local container_restarting=$(docker inspect --format='{{.State.Restarting}}' sharx_postgres 2>/dev/null)
+        local container_exit_code=$(docker inspect --format='{{.State.ExitCode}}' sharx_postgres 2>/dev/null)
+        
+        # Determine status based on actual state
+        case "$container_state" in
+            running)
+                if [[ "$container_restarting" == "true" ]]; then
+                    db_status="${YELLOW}● Перезапускается${NC}"
+                else
+                    db_status="${GREEN}● Запущена${NC}"
+                    # Try to get database size if running
+                    if docker exec sharx_postgres psql -h 127.0.0.1 -p 5432 -U xui_user -d xui_db -t -c "SELECT pg_size_pretty(pg_database_size('xui_db'));" 2>/dev/null | grep -q .; then
+                        db_size=$(docker exec sharx_postgres psql -h 127.0.0.1 -p 5432 -U xui_user -d xui_db -t -c "SELECT pg_size_pretty(pg_database_size('xui_db'));" 2>/dev/null | tr -d ' \r\n')
+                    fi
+                fi
+                ;;
+            restarting)
+                db_status="${YELLOW}● Перезапускается${NC}"
+                ;;
+            exited|stopped)
+                if [[ "$container_exit_code" != "0" ]]; then
+                    db_status="${RED}● Ошибка (Код выхода: $container_exit_code)${NC}"
+                else
+                    db_status="${RED}● Остановлена${NC}"
+                fi
+                ;;
+            *)
+                db_status="${RED}● $container_state${NC}"
+                ;;
+        esac
+    else
+        # Container doesn't exist
+        db_status="${RED}● Не установлена${NC}"
+    fi
+    
+    echo "$db_status|$db_port|$db_size"
+}
+
+# Database management functions
+start_db() {
+    if ! load_config; then
+        print_error "Конфигурация не найдена. Пожалуйста, сначала выполните установку."
+        return 1
+    fi
+    
+    cd "$INSTALL_DIR"
+    print_info "Запуск базы данных..."
+    docker compose up -d postgres
+    
+    sleep 3
+    if docker compose ps | grep -q "sharx_postgres.*Up"; then
+        print_success "База данных успешно запущена!"
+    else
+        print_warning "База данных может еще запускаться. Проверьте: docker compose ps"
+    fi
+}
+
+stop_db() {
+    if ! load_config; then
+        print_error "Конфигурация не найдена. Пожалуйста, сначала выполните установку."
+        return 1
+    fi
+    
+    cd "$INSTALL_DIR"
+    print_info "Остановка базы данных..."
+    docker compose stop postgres
+    print_success "База данных остановлена!"
+}
+
+restart_db() {
+    if ! load_config; then
+        print_error "Конфигурация не найдена. Пожалуйста, сначала выполните установку."
+        return 1
+    fi
+    
+    cd "$INSTALL_DIR"
+    print_info "Перезапуск базы данных..."
+    docker compose restart postgres
+    print_success "База данных перезапущена!"
+}
+
+backup_db() {
+    if ! load_config; then
+        print_error "Конфигурация не найдена. Пожалуйста, сначала выполните установку."
+        return 1
+    fi
+    
+    cd "$INSTALL_DIR"
+    
+    # Check if database is running
+    if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_postgres$"; then
+        print_error "База данных не запущена. Пожалуйста, сначала запустите её."
+        return 1
+    fi
+    
+    local backup_file="backup_$(date +%Y%m%d_%H%M%S).sql"
+    local backup_path="$INSTALL_DIR/$backup_file"
+    
+    print_info "Создание резервной копии базы данных..."
+    if docker compose exec -T postgres pg_dump -U xui_user xui_db > "$backup_path" 2>/dev/null; then
+        local backup_size=$(du -h "$backup_path" | cut -f1)
+        print_success "Резервная копия успешно создана!"
+        echo -e "  Файл: ${CYAN}$backup_file${NC}"
+        echo -e "  Размер: ${CYAN}$backup_size${NC}"
+        echo -e "  Путь: ${CYAN}$backup_path${NC}"
+    else
+        print_error "Не удалось создать резервную копию!"
+        return 1
+    fi
+}
+
+restore_db() {
+    if ! load_config; then
+        print_error "Конфигурация не найдена. Пожалуйста, сначала выполните установку."
+        return 1
+    fi
+    
+    cd "$INSTALL_DIR"
+    
+    # Find backup files
+    local backup_files=()
+    while IFS= read -r file; do
+        if [[ -f "$file" ]]; then
+            backup_files+=("$file")
+        fi
+    done < <(find "$INSTALL_DIR" -maxdepth 1 -name "backup_*.sql" -type f 2>/dev/null | sort -r)
+    
+    if [[ ${#backup_files[@]} -eq 0 ]]; then
+        print_error "Резервные копии не найдены в $INSTALL_DIR"
+        return 1
+    fi
+    
+    echo ""
+    echo -e "${CYAN}Доступные резервные копии:${NC}"
+    for i in "${!backup_files[@]}"; do
+        local file_name=$(basename "${backup_files[$i]}")
+        local file_size=$(du -h "${backup_files[$i]}" | cut -f1)
+        echo -e "  $((i+1))) ${CYAN}$file_name${NC} (${file_size})"
+    done
+    echo ""
+    
+    read -p "Выберите резервную копию для восстановления [1-${#backup_files[@]}]: " choice
+    if ! [[ "$choice" =~ ^[0-9]+$ ]] || [[ "$choice" -lt 1 ]] || [[ "$choice" -gt ${#backup_files[@]} ]]; then
+        print_error "Неверный выбор!"
+        return 1
+    fi
+    
+    local selected_backup="${backup_files[$((choice-1))]}"
+    
+    echo ""
+    echo -e "${YELLOW}⚠️  ПРЕДУПРЕЖДЕНИЕ: Это заменит все текущие данные базы данных!${NC}"
+    read -p "Вы уверены, что хотите восстановить из $(basename "$selected_backup")? [y/N]: " confirm
+    
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        print_info "Восстановление отменено."
+        return 0
+    fi
+    
+    # Check if database is running
+    if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_postgres$"; then
+        print_info "Запуск базы данных..."
+        docker compose up -d postgres
+        sleep 3
+    fi
+    
+    print_info "Восстановление базы данных из резервной копии..."
+    if docker compose exec -T postgres psql -U xui_user -d xui_db < "$selected_backup" 2>/dev/null; then
+        print_success "База данных успешно восстановлена!"
+        echo -e "${YELLOW}Возможно, потребуется перезапустить панель для применения изменений.${NC}"
+    else
+        print_error "Не удалось восстановить базу данных!"
+        return 1
+    fi
 }
 
 # Show instructions
@@ -2715,7 +2935,7 @@ show_instructions() {
     echo ""
     echo -e "${WHITE}Мониторинг и логирование:${NC}"
     echo -e "  ${CYAN}Просмотр логов панели:${NC}"
-    echo -e "    ${CYAN}docker compose logs -f 3xui${NC}"
+    echo -e "    ${CYAN}docker compose logs -f sharx${NC}"
     echo ""
     echo -e "  ${CYAN}Просмотр логов базы данных:${NC}"
     echo -e "    ${CYAN}docker compose logs -f postgres${NC}"
@@ -2739,18 +2959,18 @@ show_instructions() {
         echo -e "      ${CYAN}XUI_SUB_DOMAIN: sub.example.com${NC}"
         echo -e "      ${CYAN}XUI_SUB_CERT_FILE: /app/cert/sub-fullchain.pem${NC}"
         echo -e "      ${CYAN}XUI_SUB_KEY_FILE: /app/cert/sub-privkey.pem${NC}"
-        echo -e "    Затем перезапустите: ${CYAN}docker compose restart 3xui${NC}"
+        echo -e "    Затем перезапустите: ${CYAN}docker compose restart sharx${NC}"
         echo ""
     fi
     echo -e "  ${CYAN}Изменить домен/порт панели:${NC}"
     echo -e "    Отредактируйте ${CYAN}docker-compose.yml${NC} переменные окружения:"
     echo -e "      ${CYAN}XUI_WEB_DOMAIN${NC}, ${CYAN}XUI_WEB_PORT${NC}, ${CYAN}XUI_WEB_LISTEN${NC}"
-    echo -e "    Затем перезапустите: ${CYAN}docker compose restart 3xui${NC}"
+    echo -e "    Затем перезапустите: ${CYAN}docker compose restart sharx${NC}"
     echo ""
     echo -e "  ${CYAN}Изменить порт/путь подписки:${NC}"
     echo -e "    Отредактируйте ${CYAN}docker-compose.yml${NC} переменные окружения:"
     echo -e "      ${CYAN}XUI_SUB_PORT${NC}, ${CYAN}XUI_SUB_PATH${NC}, ${CYAN}XUI_SUB_DOMAIN${NC}"
-    echo -e "    Затем перезапустите: ${CYAN}docker compose restart 3xui${NC}"
+    echo -e "    Затем перезапустите: ${CYAN}docker compose restart sharx${NC}"
     echo ""
     
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -2759,7 +2979,7 @@ show_instructions() {
     echo -e "  ${CYAN}bash install_ru.sh${NC} - открыть меню управления"
     echo ""
     echo -e "  ${CYAN}Общие команды:${NC}"
-    echo -e "    ${CYAN}docker compose restart 3xui${NC} - перезапустить панель"
+    echo -e "    ${CYAN}docker compose restart sharx${NC} - перезапустить панель"
     echo -e "    ${CYAN}docker compose restart postgres${NC} - перезапустить базу данных"
     echo -e "    ${CYAN}docker compose down${NC} - остановить все сервисы"
     echo -e "    ${CYAN}docker compose up -d${NC} - запустить все сервисы"
@@ -2768,7 +2988,7 @@ show_instructions() {
 
 # Show service status
 show_status() {
-    print_info "3X-UI Статус сервисов:"
+    print_info "SharX Статус сервисов:"
     echo ""
     cd "$INSTALL_DIR"
     docker compose ps
@@ -2810,14 +3030,14 @@ show_status() {
 show_logs() {
     cd "$INSTALL_DIR"
     echo -e "${CYAN}Select container:${NC}"
-    echo "1) 3X-UI Panel"
+    echo "1) SharX Panel"
     echo "2) PostgreSQL"
     echo "3) All"
     echo ""
     read -p "Choice [1-3]: " log_choice
     
     case $log_choice in
-        1) docker compose logs -f 3xui ;;
+        1) docker compose logs -f sharx ;;
         2) docker compose logs -f postgres ;;
         3) docker compose logs -f ;;
         *) docker compose logs -f ;;
@@ -3095,7 +3315,7 @@ uninstall() {
         return 0
     fi
     
-    print_info "Удаление панели 3X-UI..."
+    print_info "Удаление панели SharX..."
     
     # Stop and remove panel containers and volumes
     cd "$INSTALL_DIR" 2>/dev/null || true
@@ -3132,7 +3352,7 @@ uninstall() {
         print_info "Локальные сертификаты удалены"
     fi
     
-    print_success "3X-UI успешно удален!"
+    print_success "SharX успешно удален!"
     echo ""
     echo -e "${YELLOW}Примечание: Файлы скриптов и директории сохранены.${NC}"
     echo -e "${YELLOW}Вы можете переустановить в любое время, запустив: bash install_ru.sh${NC}"
@@ -3301,7 +3521,7 @@ install_wizard() {
     print_banner
     echo ""
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${WHITE}          3X-UI NEW Мастер установки${NC}"
+    echo -e "${WHITE}          SharX Мастер установки${NC}"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
     
@@ -3454,13 +3674,13 @@ install_wizard() {
     fi
     
     # Start the panel
-    print_info "Запуск панели 3X-UI..."
-    docker compose up -d 3xui
+    print_info "Запуск панели SharX..."
+    docker compose up -d sharx
     
     # Wait for panel to start
     sleep 5
     
-    if docker compose ps | grep -q "3xui_app.*Up"; then
+    if docker compose ps | grep -q "sharx_app.*Up"; then
         print_success "Панель успешно запущена!"
     else
         print_warning "Панель может еще запускаться. Проверьте: docker compose ps"
@@ -3631,7 +3851,7 @@ main_menu() {
         echo ""
         
         # Display panel status
-        if [[ -f "$INSTALL_DIR/.3xui-config" ]] || docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^3xui_app$"; then
+        if [[ -f "$INSTALL_DIR/.3xui-config" ]] || docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_app$"; then
             local status_info=$(get_panel_status)
             local panel_status=$(echo "$status_info" | cut -d'|' -f1)
             local panel_port=$(echo "$status_info" | cut -d'|' -f2)
@@ -3645,6 +3865,22 @@ main_menu() {
                 echo -e "  Веб-путь: ${CYAN}/$web_path${NC}"
             fi
             echo -e "  Адрес: ${CYAN}$panel_address${NC}"
+            echo ""
+        fi
+        
+        # Display database status
+        if [[ -f "$INSTALL_DIR/.3xui-config" ]] || docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_postgres$"; then
+            local db_status_info=$(get_db_status)
+            local db_status=$(echo "$db_status_info" | cut -d'|' -f1)
+            local db_port=$(echo "$db_status_info" | cut -d'|' -f2)
+            local db_size=$(echo "$db_status_info" | cut -d'|' -f3)
+            
+            echo -e "  ${WHITE}── Статус базы данных ──${NC}"
+            echo -e "  Статус:  $(echo -e "$db_status")"
+            echo -e "  Порт:    ${CYAN}$db_port${NC}"
+            if [[ -n "$db_size" ]]; then
+                echo -e "  Размер:  ${CYAN}$db_size${NC}"
+            fi
             echo ""
         fi
         
@@ -3667,21 +3903,29 @@ main_menu() {
         echo -e "  ${YELLOW}14)${NC} Удалить порт панели"
         echo -e "  ${YELLOW}15)${NC} Сбросить панель к настройкам по умолчанию"
         echo ""
+        echo -e "  ${WHITE}── База данных ──${NC}"
+        echo -e "  ${PURPLE}17)${NC} Запустить базу данных"
+        echo -e "  ${PURPLE}18)${NC} Остановить базу данных"
+        echo -e "  ${PURPLE}19)${NC} Перезапустить базу данных"
+        echo -e "  ${PURPLE}20)${NC} Статус базы данных"
+        echo -e "  ${PURPLE}21)${NC} Создать резервную копию"
+        echo -e "  ${PURPLE}22)${NC} Восстановить из резервной копии"
+        echo ""
         echo -e "  ${WHITE}── Информация ──${NC}"
-        echo -e "  ${CYAN}16)${NC} Инструкции"
+        echo -e "  ${CYAN}23)${NC} Инструкции"
         echo ""
         echo -e "  ${WHITE}── Узел ──${NC}"
-        echo -e "  ${BLUE}20)${NC} Установить узел"
-        echo -e "  ${BLUE}21)${NC} Обновить узел"
-        echo -e "  ${BLUE}22)${NC} Запустить узел"
-        echo -e "  ${BLUE}23)${NC} Остановить узел"
-        echo -e "  ${BLUE}24)${NC} Перезапустить узел"
-        echo -e "  ${BLUE}25)${NC} Статус узла"
-        echo -e "  ${BLUE}26)${NC} Логи узла"
-        echo -e "  ${BLUE}27)${NC} Обновить сертификат узла"
-        echo -e "  ${BLUE}28)${NC} Добавить порт узла"
-        echo -e "  ${BLUE}29)${NC} Удалить порт узла"
-        echo -e "  ${BLUE}30)${NC} Сбросить узел"
+        echo -e "  ${BLUE}30)${NC} Установить узел"
+        echo -e "  ${BLUE}31)${NC} Обновить узел"
+        echo -e "  ${BLUE}32)${NC} Запустить узел"
+        echo -e "  ${BLUE}33)${NC} Остановить узел"
+        echo -e "  ${BLUE}34)${NC} Перезапустить узел"
+        echo -e "  ${BLUE}35)${NC} Статус узла"
+        echo -e "  ${BLUE}36)${NC} Логи узла"
+        echo -e "  ${BLUE}37)${NC} Обновить сертификат узла"
+        echo -e "  ${BLUE}38)${NC} Добавить порт узла"
+        echo -e "  ${BLUE}39)${NC} Удалить порт узла"
+        echo -e "  ${BLUE}40)${NC} Сбросить узел"
         echo ""
         echo -e "  ${RED}99)${NC} Удалить панель"
         echo -e "  ${WHITE}0)${NC}  Выход"
@@ -3711,27 +3955,54 @@ main_menu() {
             13) add_panel_port ;;
             14) remove_panel_port ;;
             15) reset_panel ;;
-            16) show_instructions ;;
+            
+            # Database options
+            17) start_db ;;
+            18) stop_db ;;
+            19) restart_db ;;
+            20) 
+                local db_status_info=$(get_db_status)
+                local db_status=$(echo "$db_status_info" | cut -d'|' -f1)
+                local db_port=$(echo "$db_status_info" | cut -d'|' -f2)
+                local db_size=$(echo "$db_status_info" | cut -d'|' -f3)
+                
+                print_banner
+                echo ""
+                echo -e "${WHITE}Статус базы данных:${NC}"
+                echo -e "  Статус:  $(echo -e "$db_status")"
+                echo -e "  Порт:    ${CYAN}$db_port${NC}"
+                if [[ -n "$db_size" ]]; then
+                    echo -e "  Размер:  ${CYAN}$db_size${NC}"
+                fi
+                echo ""
+                cd "$INSTALL_DIR"
+                docker compose ps postgres
+                ;;
+            21) backup_db ;;
+            22) restore_db ;;
+            
+            # Information
+            23) show_instructions ;;
             
             # Node options
-            20) install_node_wizard ;;
-            21) update_node ;;
-            22) start_node_services ;;
-            23) stop_node_services ;;
-            24) 
+            30) install_node_wizard ;;
+            31) update_node ;;
+            32) start_node_services ;;
+            33) stop_node_services ;;
+            34) 
                 cd "$NODE_DIR"
                 docker compose restart
-                print_success "Node restarted!"
+                print_success "Узел перезапущен!"
                 ;;
-            25) show_node_status ;;
-            26) 
+            35) show_node_status ;;
+            36) 
                 cd "$NODE_DIR"
                 docker compose logs -f
                 ;;
-            27) renew_node_certificate ;;
-            28) add_node_port ;;
-            29) remove_node_port ;;
-            30) reset_node ;;
+            37) renew_node_certificate ;;
+            38) add_node_port ;;
+            39) remove_node_port ;;
+            40) reset_node ;;
             
             # Other
             99) uninstall ;;
