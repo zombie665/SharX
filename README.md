@@ -107,8 +107,8 @@ sudo bash install.sh
 
 1. **Clone the repository / Клонируйте репозиторий:**
    ```bash
-   git clone https://github.com/konstpic/3x-ui-new.git
-   cd 3x-ui-new
+   git clone https://github.com/konstpic/SharX.git
+   cd SharX
    ```
 
 2. **Configure `docker-compose.yml` / Настройте `docker-compose.yml`:**
