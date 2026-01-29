@@ -28,8 +28,8 @@ This version brings significant improvements, a modern architecture, streamlined
 Клонируйте и запустите:
 
 ```bash
-git clone https://github.com/konstpic/3x-ui-new.git
-cd 3x-ui-new
+git clone https://github.com/konstpic/SharX.git
+cd SharX
 sudo bash install.sh
 ```
 
