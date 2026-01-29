@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================
-# 3X-UI NEW Installation Script
+# SharX Installation Script
 # Author: @konspic
 # Version: 3.0.0b
 # ============================================
@@ -562,7 +562,7 @@ setup_ssl_certificate() {
     ~/.acme.sh/acme.sh --installcert -d ${domain} \
         --key-file ${acmeCertPath}/privkey.pem \
         --fullchain-file ${acmeCertPath}/fullchain.pem \
-        --reloadcmd "cp ${acmeCertPath}/privkey.pem ${cert_dir}/ && cp ${acmeCertPath}/fullchain.pem ${cert_dir}/ && cd ${INSTALL_DIR} && docker compose restart 3xui 2>/dev/null || true" >/dev/null 2>&1
+        --reloadcmd "cp ${acmeCertPath}/privkey.pem ${cert_dir}/ && cp ${acmeCertPath}/fullchain.pem ${cert_dir}/ && cd ${INSTALL_DIR} && docker compose restart sharx 2>/dev/null || true" >/dev/null 2>&1
     
     if [ $? -ne 0 ]; then
         print_warning "Certificate install command had issues, checking files..."
@@ -670,7 +670,7 @@ setup_ip_certificate() {
     ~/.acme.sh/acme.sh --installcert -d ${ipv4} \
         --key-file "${acmeCertDir}/privkey.pem" \
         --fullchain-file "${acmeCertDir}/fullchain.pem" \
-        --reloadcmd "cp ${acmeCertDir}/privkey.pem ${cert_dir}/ && cp ${acmeCertDir}/fullchain.pem ${cert_dir}/ && cd ${INSTALL_DIR} && docker compose restart 3xui 2>/dev/null || true" 2>&1 || true
+        --reloadcmd "cp ${acmeCertDir}/privkey.pem ${cert_dir}/ && cp ${acmeCertDir}/fullchain.pem ${cert_dir}/ && cd ${INSTALL_DIR} && docker compose restart sharx 2>/dev/null || true" 2>&1 || true
 
     # Verify certificate files exist
     if [[ ! -f "${acmeCertDir}/fullchain.pem" || ! -f "${acmeCertDir}/privkey.pem" ]]; then
@@ -1207,9 +1207,9 @@ create_compose_host() {
     
     cat > "$INSTALL_DIR/$COMPOSE_FILE" << EOF
 services:
-  3xui:
+  sharx:
     image: registry.konstpic.ru/3x-ui/3xui:3.0.0b
-    container_name: 3xui_app
+    container_name: sharx_app
     network_mode: host
     volumes:
       - \$PWD/cert/:/app/cert/
@@ -1237,7 +1237,7 @@ $(echo -e "$env_vars")
 
   postgres:
     image: registry.konstpic.ru/3x-ui/postgres:16-alpine
-    container_name: 3xui_postgres
+    container_name: sharx_postgres
     network_mode: host
     environment:
       POSTGRES_USER: xui_user
@@ -1280,9 +1280,9 @@ create_compose_bridge() {
     
     cat > "$INSTALL_DIR/$COMPOSE_FILE" << EOF
 services:
-  3xui:
+  sharx:
     image: registry.konstpic.ru/3x-ui/3xui:3.0.0b
-    container_name: 3xui_app
+    container_name: sharx_app
     ports:
 $(echo -e "$ports_section")
     volumes:
@@ -1326,7 +1326,7 @@ $(echo -e "$env_vars")
 
   postgres:
     image: registry.konstpic.ru/3x-ui/postgres:16-alpine
-    container_name: 3xui_postgres
+    container_name: sharx_postgres
     ports:
       - "5432:5432"
     environment:
@@ -1365,7 +1365,7 @@ create_node_compose_host() {
 services:
   node:
     image: registry.konstpic.ru/3x-ui/node:3.0.0b
-    container_name: 3x-ui-node
+    container_name: sharx-node
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -1400,7 +1400,7 @@ create_node_compose_bridge() {
 services:
   node:
     image: registry.konstpic.ru/3x-ui/node:3.0.0b
-    container_name: 3x-ui-node
+    container_name: sharx-node
     restart: unless-stopped
     ports:
 $(echo -e "$ports_section")
@@ -1433,7 +1433,7 @@ save_node_config() {
     local xray_ports=("$@")
     
     cat > "$NODE_DIR/.node-config" << EOF
-# 3X-UI Node Configuration
+# SharX Node Configuration
 # Generated: $(date)
 
 NODE_PORT=$node_port
@@ -1584,7 +1584,7 @@ install_node_wizard() {
     print_banner
     echo ""
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${WHITE}          3X-UI Node Installation Wizard${NC}"
+    echo -e "${WHITE}          SharX Node Installation Wizard${NC}"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
     
@@ -2154,7 +2154,7 @@ save_config() {
     local additional_ports=("$@")
     
     cat > "$INSTALL_DIR/.3xui-config" << EOF
-# 3X-UI Configuration
+# SharX Configuration
 # Generated: $(date)
 
 PANEL_PORT=$panel_port
@@ -2185,7 +2185,7 @@ load_config() {
 
 # Start services
 start_services() {
-    print_info "Starting 3X-UI services..."
+    print_info "Starting SharX services..."
     cd "$INSTALL_DIR"
     docker compose up -d
     
@@ -2202,7 +2202,7 @@ start_services() {
 
 # Stop services
 stop_services() {
-    print_info "Stopping 3X-UI services..."
+    print_info "Stopping SharX services..."
     cd "$INSTALL_DIR"
     docker compose down
     print_success "Services stopped!"
@@ -2258,24 +2258,24 @@ update_services() {
     done
     
     echo ""
-    print_info "Updating 3X-UI Panel..."
+    print_info "Updating SharX Panel..."
     cd "$INSTALL_DIR"
     
     print_info "Step 1/3: Pulling new panel image..."
-    docker compose pull 3xui
+    docker compose pull sharx
     
     print_info "Step 2/3: Stopping and removing old container..."
-    docker compose stop 3xui
-    docker compose rm -f 3xui
+    docker compose stop sharx
+    docker compose rm -f sharx
     
     print_info "Step 3/3: Starting panel with new image..."
-    docker compose up -d 3xui
+    docker compose up -d sharx
     
     # Cleanup old images
     print_info "Cleaning up old images..."
     docker image prune -f
     
-    print_success "3X-UI Panel updated successfully!"
+    print_success "SharX Panel updated successfully!"
     echo -e "${YELLOW}Note: Database was not restarted.${NC}"
 }
 
@@ -2289,8 +2289,8 @@ get_webpath_from_db() {
     local webpath=""
     
     # Try to get database credentials from container environment
-    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^3xui_app$"; then
-        local env_vars=$(docker inspect 3xui_app --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null)
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_app$"; then
+        local env_vars=$(docker inspect sharx_app --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null)
         if [[ -n "$env_vars" ]]; then
             db_host=$(echo "$env_vars" | grep "^XUI_DB_HOST=" | cut -d'=' -f2 | tr -d '\r\n')
             db_port=$(echo "$env_vars" | grep "^XUI_DB_PORT=" | cut -d'=' -f2 | tr -d '\r\n')
@@ -2325,9 +2325,9 @@ get_webpath_from_db() {
     
     # Try to get webBasePath from database
     # First try via docker exec to postgres container
-    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^3xui_postgres$"; then
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_postgres$"; then
         # Use docker exec to connect to postgres container
-        webpath=$(docker exec 3xui_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -t -c "SELECT value FROM settings WHERE key = 'webBasePath';" 2>/dev/null | tr -d ' \r\n')
+        webpath=$(docker exec sharx_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -t -c "SELECT value FROM settings WHERE key = 'webBasePath';" 2>/dev/null | tr -d ' \r\n')
     elif command -v psql &>/dev/null && [[ "$db_host" == "127.0.0.1" ]] || [[ "$db_host" == "localhost" ]]; then
         # Try direct psql connection (for host network mode)
         export PGPASSWORD="$db_password"
@@ -2353,14 +2353,14 @@ update_ssl_settings_in_db() {
     local db_name="xui_db"
     
     # Check if postgres container is running
-    if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^3xui_postgres$"; then
+    if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_postgres$"; then
         # SSL settings will be passed via environment variables in docker-compose
         print_info "SSL settings will be applied via environment variables on panel start."
         return 0
     fi
     
     # Check if settings table exists and has data (panel needs to run first to create schema)
-    local table_exists=$(docker exec 3xui_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -t -c \
+    local table_exists=$(docker exec sharx_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -t -c \
         "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'settings');" 2>/dev/null | tr -d ' \r\n')
     
     if [[ "$table_exists" != "t" ]]; then
@@ -2371,7 +2371,7 @@ update_ssl_settings_in_db() {
     fi
     
     # Check if there are any settings records
-    local settings_count=$(docker exec 3xui_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -t -c \
+    local settings_count=$(docker exec sharx_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -t -c \
         "SELECT COUNT(*) FROM settings WHERE key IN ('webCertFile', 'webKeyFile');" 2>/dev/null | tr -d ' \r\n')
     
     if [[ "$settings_count" == "0" ]] || [[ -z "$settings_count" ]]; then
@@ -2387,11 +2387,11 @@ update_ssl_settings_in_db() {
     print_info "Updating SSL settings in database..."
     
     # Update webCertFile
-    docker exec 3xui_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -c \
+    docker exec sharx_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -c \
         "UPDATE settings SET value = '$cert_file_escaped' WHERE key = 'webCertFile';" 2>/dev/null
     
     # Update webKeyFile
-    docker exec 3xui_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -c \
+    docker exec sharx_postgres psql -h 127.0.0.1 -p 5432 -U "$db_user" -d "$db_name" -c \
         "UPDATE settings SET value = '$key_file_escaped' WHERE key = 'webKeyFile';" 2>/dev/null
     
     if [ $? -eq 0 ]; then
@@ -2509,15 +2509,46 @@ get_panel_status() {
     local web_path=""
     local is_running=false
     
-    # Check if container exists and is running
-    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^3xui_app$"; then
-        is_running=true
-        panel_status="${GREEN}● Running${NC}"
+    # Check if container exists
+    if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_app$"; then
+        # Get actual container state
+        local container_state=$(docker inspect --format='{{.State.Status}}' sharx_app 2>/dev/null)
+        local container_restarting=$(docker inspect --format='{{.State.Restarting}}' sharx_app 2>/dev/null)
+        local container_exit_code=$(docker inspect --format='{{.State.ExitCode}}' sharx_app 2>/dev/null)
         
-        # Try to get environment variables from container
+        # Determine status based on actual state
+        case "$container_state" in
+            running)
+                if [[ "$container_restarting" == "true" ]]; then
+                    panel_status="${YELLOW}● Restarting${NC}"
+                    is_running=false
+                else
+                    panel_status="${GREEN}● Running${NC}"
+                    is_running=true
+                fi
+                ;;
+            restarting)
+                panel_status="${YELLOW}● Restarting${NC}"
+                is_running=false
+                ;;
+            exited|stopped)
+                if [[ "$container_exit_code" != "0" ]]; then
+                    panel_status="${RED}● Failed (Exit: $container_exit_code)${NC}"
+                else
+                    panel_status="${RED}● Stopped${NC}"
+                fi
+                is_running=false
+                ;;
+            *)
+                panel_status="${RED}● $container_state${NC}"
+                is_running=false
+                ;;
+        esac
+        
+        # Try to get environment variables from container (only if container is actually running)
         local env_vars=""
-        if docker inspect 3xui_app &>/dev/null; then
-            env_vars=$(docker inspect 3xui_app --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null)
+        if [[ "$is_running" == "true" ]] && docker inspect sharx_app &>/dev/null; then
+            env_vars=$(docker inspect sharx_app --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null)
         fi
         
         # Extract port from environment or config
@@ -2538,8 +2569,10 @@ get_panel_status() {
             has_cert=true
         fi
         
-        # Get webBasePath from database
-        web_path=$(get_webpath_from_db)
+        # Get webBasePath from database (only if running)
+        if [[ "$is_running" == "true" ]]; then
+            web_path=$(get_webpath_from_db)
+        fi
         
         # Get port from environment, config, or default
         if [[ -n "$env_port" ]]; then
@@ -2580,7 +2613,8 @@ get_panel_status() {
             panel_address="${panel_address}/${web_path_clean}"
         fi
     else
-        panel_status="${RED}● Stopped${NC}"
+        # Container doesn't exist
+        panel_status="${RED}● Not Installed${NC}"
         # Try to get port from config
         if load_config 2>/dev/null; then
             panel_port="$PANEL_PORT"
@@ -2593,6 +2627,191 @@ get_panel_status() {
     fi
     
     echo "$panel_status|$panel_port|$panel_address|$web_path"
+}
+
+# Get database status for menu display
+get_db_status() {
+    local db_status=""
+    local db_port="5432"
+    local db_size=""
+    
+    # Check if container exists
+    if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_postgres$"; then
+        # Get actual container state
+        local container_state=$(docker inspect --format='{{.State.Status}}' sharx_postgres 2>/dev/null)
+        local container_restarting=$(docker inspect --format='{{.State.Restarting}}' sharx_postgres 2>/dev/null)
+        local container_exit_code=$(docker inspect --format='{{.State.ExitCode}}' sharx_postgres 2>/dev/null)
+        
+        # Determine status based on actual state
+        case "$container_state" in
+            running)
+                if [[ "$container_restarting" == "true" ]]; then
+                    db_status="${YELLOW}● Restarting${NC}"
+                else
+                    db_status="${GREEN}● Running${NC}"
+                    # Try to get database size if running
+                    if docker exec sharx_postgres psql -h 127.0.0.1 -p 5432 -U xui_user -d xui_db -t -c "SELECT pg_size_pretty(pg_database_size('xui_db'));" 2>/dev/null | grep -q .; then
+                        db_size=$(docker exec sharx_postgres psql -h 127.0.0.1 -p 5432 -U xui_user -d xui_db -t -c "SELECT pg_size_pretty(pg_database_size('xui_db'));" 2>/dev/null | tr -d ' \r\n')
+                    fi
+                fi
+                ;;
+            restarting)
+                db_status="${YELLOW}● Restarting${NC}"
+                ;;
+            exited|stopped)
+                if [[ "$container_exit_code" != "0" ]]; then
+                    db_status="${RED}● Failed (Exit: $container_exit_code)${NC}"
+                else
+                    db_status="${RED}● Stopped${NC}"
+                fi
+                ;;
+            *)
+                db_status="${RED}● $container_state${NC}"
+                ;;
+        esac
+    else
+        # Container doesn't exist
+        db_status="${RED}● Not Installed${NC}"
+    fi
+    
+    echo "$db_status|$db_port|$db_size"
+}
+
+# Database management functions
+start_db() {
+    if ! load_config; then
+        print_error "Configuration not found. Please run installation first."
+        return 1
+    fi
+    
+    cd "$INSTALL_DIR"
+    print_info "Starting database..."
+    docker compose up -d postgres
+    
+    sleep 3
+    if docker compose ps | grep -q "sharx_postgres.*Up"; then
+        print_success "Database started successfully!"
+    else
+        print_warning "Database may still be starting. Check with: docker compose ps"
+    fi
+}
+
+stop_db() {
+    if ! load_config; then
+        print_error "Configuration not found. Please run installation first."
+        return 1
+    fi
+    
+    cd "$INSTALL_DIR"
+    print_info "Stopping database..."
+    docker compose stop postgres
+    print_success "Database stopped!"
+}
+
+restart_db() {
+    if ! load_config; then
+        print_error "Configuration not found. Please run installation first."
+        return 1
+    fi
+    
+    cd "$INSTALL_DIR"
+    print_info "Restarting database..."
+    docker compose restart postgres
+    print_success "Database restarted!"
+}
+
+backup_db() {
+    if ! load_config; then
+        print_error "Configuration not found. Please run installation first."
+        return 1
+    fi
+    
+    cd "$INSTALL_DIR"
+    
+    # Check if database is running
+    if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_postgres$"; then
+        print_error "Database is not running. Please start it first."
+        return 1
+    fi
+    
+    local backup_file="backup_$(date +%Y%m%d_%H%M%S).sql"
+    local backup_path="$INSTALL_DIR/$backup_file"
+    
+    print_info "Creating database backup..."
+    if docker compose exec -T postgres pg_dump -U xui_user xui_db > "$backup_path" 2>/dev/null; then
+        local backup_size=$(du -h "$backup_path" | cut -f1)
+        print_success "Backup created successfully!"
+        echo -e "  File: ${CYAN}$backup_file${NC}"
+        echo -e "  Size: ${CYAN}$backup_size${NC}"
+        echo -e "  Path: ${CYAN}$backup_path${NC}"
+    else
+        print_error "Failed to create backup!"
+        return 1
+    fi
+}
+
+restore_db() {
+    if ! load_config; then
+        print_error "Configuration not found. Please run installation first."
+        return 1
+    fi
+    
+    cd "$INSTALL_DIR"
+    
+    # Find backup files
+    local backup_files=()
+    while IFS= read -r file; do
+        if [[ -f "$file" ]]; then
+            backup_files+=("$file")
+        fi
+    done < <(find "$INSTALL_DIR" -maxdepth 1 -name "backup_*.sql" -type f 2>/dev/null | sort -r)
+    
+    if [[ ${#backup_files[@]} -eq 0 ]]; then
+        print_error "No backup files found in $INSTALL_DIR"
+        return 1
+    fi
+    
+    echo ""
+    echo -e "${CYAN}Available backups:${NC}"
+    for i in "${!backup_files[@]}"; do
+        local file_name=$(basename "${backup_files[$i]}")
+        local file_size=$(du -h "${backup_files[$i]}" | cut -f1)
+        echo -e "  $((i+1))) ${CYAN}$file_name${NC} (${file_size})"
+    done
+    echo ""
+    
+    read -p "Select backup to restore [1-${#backup_files[@]}]: " choice
+    if ! [[ "$choice" =~ ^[0-9]+$ ]] || [[ "$choice" -lt 1 ]] || [[ "$choice" -gt ${#backup_files[@]} ]]; then
+        print_error "Invalid selection!"
+        return 1
+    fi
+    
+    local selected_backup="${backup_files[$((choice-1))]}"
+    
+    echo ""
+    echo -e "${YELLOW}⚠️  WARNING: This will replace all current database data!${NC}"
+    read -p "Are you sure you want to restore from $(basename "$selected_backup")? [y/N]: " confirm
+    
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        print_info "Restore cancelled."
+        return 0
+    fi
+    
+    # Check if database is running
+    if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_postgres$"; then
+        print_info "Starting database..."
+        docker compose up -d postgres
+        sleep 3
+    fi
+    
+    print_info "Restoring database from backup..."
+    if docker compose exec -T postgres psql -U xui_user -d xui_db < "$selected_backup" 2>/dev/null; then
+        print_success "Database restored successfully!"
+        echo -e "${YELLOW}You may need to restart the panel for changes to take effect.${NC}"
+    else
+        print_error "Failed to restore database!"
+        return 1
+    fi
 }
 
 # Show instructions
@@ -2715,7 +2934,7 @@ show_instructions() {
     echo ""
     echo -e "${WHITE}Monitoring & Logging:${NC}"
     echo -e "  ${CYAN}View panel logs:${NC}"
-    echo -e "    ${CYAN}docker compose logs -f 3xui${NC}"
+    echo -e "    ${CYAN}docker compose logs -f sharx${NC}"
     echo ""
     echo -e "  ${CYAN}View database logs:${NC}"
     echo -e "    ${CYAN}docker compose logs -f postgres${NC}"
@@ -2739,18 +2958,18 @@ show_instructions() {
         echo -e "      ${CYAN}XUI_SUB_DOMAIN: sub.example.com${NC}"
         echo -e "      ${CYAN}XUI_SUB_CERT_FILE: /app/cert/sub-fullchain.pem${NC}"
         echo -e "      ${CYAN}XUI_SUB_KEY_FILE: /app/cert/sub-privkey.pem${NC}"
-        echo -e "    Then restart: ${CYAN}docker compose restart 3xui${NC}"
+        echo -e "    Then restart: ${CYAN}docker compose restart sharx${NC}"
         echo ""
     fi
     echo -e "  ${CYAN}Change panel domain/port:${NC}"
     echo -e "    Edit ${CYAN}docker-compose.yml${NC} environment variables:"
     echo -e "      ${CYAN}XUI_WEB_DOMAIN${NC}, ${CYAN}XUI_WEB_PORT${NC}, ${CYAN}XUI_WEB_LISTEN${NC}"
-    echo -e "    Then restart: ${CYAN}docker compose restart 3xui${NC}"
+    echo -e "    Then restart: ${CYAN}docker compose restart sharx${NC}"
     echo ""
     echo -e "  ${CYAN}Change subscription port/path:${NC}"
     echo -e "    Edit ${CYAN}docker-compose.yml${NC} environment variables:"
     echo -e "      ${CYAN}XUI_SUB_PORT${NC}, ${CYAN}XUI_SUB_PATH${NC}, ${CYAN}XUI_SUB_DOMAIN${NC}"
-    echo -e "    Then restart: ${CYAN}docker compose restart 3xui${NC}"
+    echo -e "    Then restart: ${CYAN}docker compose restart sharx${NC}"
     echo ""
     
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -2759,7 +2978,7 @@ show_instructions() {
     echo -e "  ${CYAN}bash install.sh${NC} - open management menu"
     echo ""
     echo -e "  ${CYAN}Common commands:${NC}"
-    echo -e "    ${CYAN}docker compose restart 3xui${NC} - restart panel"
+    echo -e "    ${CYAN}docker compose restart sharx${NC} - restart panel"
     echo -e "    ${CYAN}docker compose restart postgres${NC} - restart database"
     echo -e "    ${CYAN}docker compose down${NC} - stop all services"
     echo -e "    ${CYAN}docker compose up -d${NC} - start all services"
@@ -2768,7 +2987,7 @@ show_instructions() {
 
 # Show service status
 show_status() {
-    print_info "3X-UI Service Status:"
+    print_info "SharX Service Status:"
     echo ""
     cd "$INSTALL_DIR"
     docker compose ps
@@ -2810,14 +3029,14 @@ show_status() {
 show_logs() {
     cd "$INSTALL_DIR"
     echo -e "${CYAN}Select container:${NC}"
-    echo "1) 3X-UI Panel"
+    echo "1) SharX Panel"
     echo "2) PostgreSQL"
     echo "3) All"
     echo ""
     read -p "Choice [1-3]: " log_choice
     
     case $log_choice in
-        1) docker compose logs -f 3xui ;;
+        1) docker compose logs -f sharx ;;
         2) docker compose logs -f postgres ;;
         3) docker compose logs -f ;;
         *) docker compose logs -f ;;
@@ -3095,7 +3314,7 @@ uninstall() {
         return 0
     fi
     
-    print_info "Uninstalling 3X-UI Panel..."
+    print_info "Uninstalling SharX Panel..."
     
     # Stop and remove panel containers and volumes
     cd "$INSTALL_DIR" 2>/dev/null || true
@@ -3132,7 +3351,7 @@ uninstall() {
         print_info "Local certificates removed"
     fi
     
-    print_success "3X-UI uninstalled successfully!"
+    print_success "SharX uninstalled successfully!"
     echo ""
     echo -e "${YELLOW}Note: Script files and directories are preserved.${NC}"
     echo -e "${YELLOW}You can reinstall anytime by running: bash install.sh${NC}"
@@ -3301,7 +3520,7 @@ install_wizard() {
     print_banner
     echo ""
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${WHITE}          3X-UI NEW Installation Wizard${NC}"
+    echo -e "${WHITE}          SharX Installation Wizard${NC}"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
     
@@ -3454,13 +3673,13 @@ install_wizard() {
     fi
     
     # Start the panel
-    print_info "Starting 3X-UI panel..."
-    docker compose up -d 3xui
+    print_info "Starting SharX panel..."
+    docker compose up -d sharx
     
     # Wait for panel to start
     sleep 5
     
-    if docker compose ps | grep -q "3xui_app.*Up"; then
+    if docker compose ps | grep -q "sharx_app.*Up"; then
         print_success "Panel started successfully!"
     else
         print_warning "Panel may still be starting. Check with: docker compose ps"
@@ -3631,7 +3850,7 @@ main_menu() {
         echo ""
         
         # Display panel status
-        if [[ -f "$INSTALL_DIR/.3xui-config" ]] || docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^3xui_app$"; then
+        if [[ -f "$INSTALL_DIR/.3xui-config" ]] || docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_app$"; then
             local status_info=$(get_panel_status)
             local panel_status=$(echo "$status_info" | cut -d'|' -f1)
             local panel_port=$(echo "$status_info" | cut -d'|' -f2)
@@ -3645,6 +3864,22 @@ main_menu() {
                 echo -e "  WebPath: ${CYAN}/$web_path${NC}"
             fi
             echo -e "  Address: ${CYAN}$panel_address${NC}"
+            echo ""
+        fi
+        
+        # Display database status
+        if [[ -f "$INSTALL_DIR/.3xui-config" ]] || docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^sharx_postgres$"; then
+            local db_status_info=$(get_db_status)
+            local db_status=$(echo "$db_status_info" | cut -d'|' -f1)
+            local db_port=$(echo "$db_status_info" | cut -d'|' -f2)
+            local db_size=$(echo "$db_status_info" | cut -d'|' -f3)
+            
+            echo -e "  ${WHITE}── Database Status ──${NC}"
+            echo -e "  Status:  $(echo -e "$db_status")"
+            echo -e "  Port:    ${CYAN}$db_port${NC}"
+            if [[ -n "$db_size" ]]; then
+                echo -e "  Size:    ${CYAN}$db_size${NC}"
+            fi
             echo ""
         fi
         
@@ -3667,21 +3902,29 @@ main_menu() {
         echo -e "  ${YELLOW}14)${NC} Remove Panel Port"
         echo -e "  ${YELLOW}15)${NC} Reset Panel to Defaults"
         echo ""
+        echo -e "  ${WHITE}── Database ──${NC}"
+        echo -e "  ${PURPLE}17)${NC} Start Database"
+        echo -e "  ${PURPLE}18)${NC} Stop Database"
+        echo -e "  ${PURPLE}19)${NC} Restart Database"
+        echo -e "  ${PURPLE}20)${NC} Database Status"
+        echo -e "  ${PURPLE}21)${NC} Backup Database"
+        echo -e "  ${PURPLE}22)${NC} Restore Database"
+        echo ""
         echo -e "  ${WHITE}── Information ──${NC}"
-        echo -e "  ${CYAN}16)${NC} Instructions"
+        echo -e "  ${CYAN}23)${NC} Instructions"
         echo ""
         echo -e "  ${WHITE}── Node ──${NC}"
-        echo -e "  ${BLUE}20)${NC} Install Node"
-        echo -e "  ${BLUE}21)${NC} Update Node"
-        echo -e "  ${BLUE}22)${NC} Start Node"
-        echo -e "  ${BLUE}23)${NC} Stop Node"
-        echo -e "  ${BLUE}24)${NC} Restart Node"
-        echo -e "  ${BLUE}25)${NC} Node Status"
-        echo -e "  ${BLUE}26)${NC} Node Logs"
-        echo -e "  ${BLUE}27)${NC} Renew Node Certificate"
-        echo -e "  ${BLUE}28)${NC} Add Node Port"
-        echo -e "  ${BLUE}29)${NC} Remove Node Port"
-        echo -e "  ${BLUE}30)${NC} Reset Node"
+        echo -e "  ${BLUE}30)${NC} Install Node"
+        echo -e "  ${BLUE}31)${NC} Update Node"
+        echo -e "  ${BLUE}32)${NC} Start Node"
+        echo -e "  ${BLUE}33)${NC} Stop Node"
+        echo -e "  ${BLUE}34)${NC} Restart Node"
+        echo -e "  ${BLUE}35)${NC} Node Status"
+        echo -e "  ${BLUE}36)${NC} Node Logs"
+        echo -e "  ${BLUE}37)${NC} Renew Node Certificate"
+        echo -e "  ${BLUE}38)${NC} Add Node Port"
+        echo -e "  ${BLUE}39)${NC} Remove Node Port"
+        echo -e "  ${BLUE}40)${NC} Reset Node"
         echo ""
         echo -e "  ${RED}99)${NC} Uninstall Panel"
         echo -e "  ${WHITE}0)${NC}  Exit"
@@ -3711,27 +3954,54 @@ main_menu() {
             13) add_panel_port ;;
             14) remove_panel_port ;;
             15) reset_panel ;;
-            16) show_instructions ;;
+            
+            # Database options
+            17) start_db ;;
+            18) stop_db ;;
+            19) restart_db ;;
+            20) 
+                local db_status_info=$(get_db_status)
+                local db_status=$(echo "$db_status_info" | cut -d'|' -f1)
+                local db_port=$(echo "$db_status_info" | cut -d'|' -f2)
+                local db_size=$(echo "$db_status_info" | cut -d'|' -f3)
+                
+                print_banner
+                echo ""
+                echo -e "${WHITE}Database Status:${NC}"
+                echo -e "  Status:  $(echo -e "$db_status")"
+                echo -e "  Port:    ${CYAN}$db_port${NC}"
+                if [[ -n "$db_size" ]]; then
+                    echo -e "  Size:    ${CYAN}$db_size${NC}"
+                fi
+                echo ""
+                cd "$INSTALL_DIR"
+                docker compose ps postgres
+                ;;
+            21) backup_db ;;
+            22) restore_db ;;
+            
+            # Information
+            23) show_instructions ;;
             
             # Node options
-            20) install_node_wizard ;;
-            21) update_node ;;
-            22) start_node_services ;;
-            23) stop_node_services ;;
-            24) 
+            30) install_node_wizard ;;
+            31) update_node ;;
+            32) start_node_services ;;
+            33) stop_node_services ;;
+            34) 
                 cd "$NODE_DIR"
                 docker compose restart
                 print_success "Node restarted!"
                 ;;
-            25) show_node_status ;;
-            26) 
+            35) show_node_status ;;
+            36) 
                 cd "$NODE_DIR"
                 docker compose logs -f
                 ;;
-            27) renew_node_certificate ;;
-            28) add_node_port ;;
-            29) remove_node_port ;;
-            30) reset_node ;;
+            37) renew_node_certificate ;;
+            38) add_node_port ;;
+            39) remove_node_port ;;
+            40) reset_node ;;
             
             # Other
             99) uninstall ;;
@@ -3773,7 +4043,7 @@ main() {
                 # Interactive selection for first run
                 print_banner
                 echo ""
-                echo -e "${CYAN}Welcome to 3X-UI NEW Installer!${NC}"
+                echo -e "${CYAN}Welcome to SharX Installer!${NC}"
                 echo ""
                 echo -e "${WHITE}What would you like to install?${NC}"
                 echo ""
