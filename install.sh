@@ -9,13 +9,15 @@
 set -e
 
 # Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
+RED='\e[38;2;255;0;0m'
+GREEN='\e[38;2;0;255;0m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
+SKYBLUE='\e[38;2;188;225;107m'
 PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
+CYAN='\e[38;2;135;206;235m'
 WHITE='\033[1;37m'
+ORANGE='\e[38;2;255;100;0m'
+LIME='\e[38;2;188;225;107m'
 NC='\033[0m' # No Color
 
 # Default values
@@ -49,7 +51,7 @@ print_banner() {
 }
 
 # Print colored message
-print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+print_info() { echo -e "${SKYBLUE}[INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 print_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
@@ -889,7 +891,7 @@ prompt_and_setup_ssl() {
     echo -e "${GREEN}1.${NC} Let's Encrypt for Domain (90-day validity, auto-renews)"
     echo -e "${GREEN}2.${NC} Let's Encrypt for IP Address (6-day validity, auto-renews)"
     echo -e "${GREEN}3.${NC} Skip SSL setup (configure later)"
-    echo -e "${BLUE}Note:${NC} Both options require port 80 open for HTTP-01 challenge."
+    echo -e "${SKYBLUE}Note:${NC} Both options require port 80 open for HTTP-01 challenge."
     echo ""
     read -rp "Choose an option [1-3, default: 2]: " ssl_choice
     ssl_choice="${ssl_choice:-2}"
@@ -3924,28 +3926,28 @@ main_menu() {
         echo -e "  ${YELLOW}15)${NC} Reset Panel to Defaults"
         echo ""
         echo -e "  ${WHITE}── Database ──${NC}"
-        echo -e "  ${PURPLE}17)${NC} Start Database"
-        echo -e "  ${PURPLE}18)${NC} Stop Database"
-        echo -e "  ${PURPLE}19)${NC} Restart Database"
-        echo -e "  ${PURPLE}20)${NC} Database Status"
-        echo -e "  ${PURPLE}21)${NC} Backup Database"
-        echo -e "  ${PURPLE}22)${NC} Restore Database"
+        echo -e "  ${ORANGE}17)${NC} Start Database"
+        echo -e "  ${ORANGE}18)${NC} Stop Database"
+        echo -e "  ${ORANGE}19)${NC} Restart Database"
+        echo -e "  ${ORANGE}20)${NC} Database Status"
+        echo -e "  ${ORANGE}21)${NC} Backup Database"
+        echo -e "  ${ORANGE}22)${NC} Restore Database"
         echo ""
         echo -e "  ${WHITE}── Information ──${NC}"
         echo -e "  ${CYAN}23)${NC} Instructions"
         echo ""
         echo -e "  ${WHITE}── Node ──${NC}"
-        echo -e "  ${BLUE}30)${NC} Install Node"
-        echo -e "  ${BLUE}31)${NC} Update Node"
-        echo -e "  ${BLUE}32)${NC} Start Node"
-        echo -e "  ${BLUE}33)${NC} Stop Node"
-        echo -e "  ${BLUE}34)${NC} Restart Node"
-        echo -e "  ${BLUE}35)${NC} Node Status"
-        echo -e "  ${BLUE}36)${NC} Node Logs"
-        echo -e "  ${BLUE}37)${NC} Renew Node Certificate"
-        echo -e "  ${BLUE}38)${NC} Add Node Port"
-        echo -e "  ${BLUE}39)${NC} Remove Node Port"
-        echo -e "  ${BLUE}40)${NC} Reset Node"
+        echo -e "  ${LIME}30)${NC} Install Node"
+        echo -e "  ${LIME}31)${NC} Update Node"
+        echo -e "  ${LIME}32)${NC} Start Node"
+        echo -e "  ${LIME}33)${NC} Stop Node"
+        echo -e "  ${LIME}34)${NC} Restart Node"
+        echo -e "  ${LIME}35)${NC} Node Status"
+        echo -e "  ${LIME}36)${NC} Node Logs"
+        echo -e "  ${LIME}37)${NC} Renew Node Certificate"
+        echo -e "  ${LIME}38)${NC} Add Node Port"
+        echo -e "  ${LIME}39)${NC} Remove Node Port"
+        echo -e "  ${LIME}40)${NC} Reset Node"
         echo ""
         echo -e "  ${RED}99)${NC} Uninstall Panel"
         echo -e "  ${WHITE}0)${NC}  Exit"
@@ -4069,7 +4071,7 @@ main() {
                 echo -e "${WHITE}What would you like to install?${NC}"
                 echo ""
                 echo -e "  ${GREEN}1)${NC} Install Panel (with database)"
-                echo -e "  ${BLUE}2)${NC} Install Node (standalone)"
+                echo -e "  ${LIME}2)${NC} Install Node (standalone)"
                 echo -e "  ${YELLOW}3)${NC} Open Menu"
                 echo -e "  ${WHITE}0)${NC} Exit"
                 echo ""
