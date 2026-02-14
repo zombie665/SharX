@@ -1,6 +1,6 @@
 # SharX
 
-[English](https://www.google.com/search?q=README_EN.md) | [Русский](https://www.google.com/search?q=README_RU.md) | [فارسی](https://www.google.com/search?q=README_FA.md)
+[English](README_EN.md) | [Русский](README_RU.md) | [فارسی](README_FA.md)
 
 ## به SharX خوش آمدید
 
