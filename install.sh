@@ -3,7 +3,7 @@
 # ============================================
 # SharX Installation Script
 # Author: @konspic
-# Version: 3.0.0b
+# Version: latest
 # ============================================
 
 set -e
