@@ -1785,7 +1785,7 @@ install_node_wizard() {
           "type": "field",
           "outboundTag": "blocked",
           "proвcol": [
-            "bitвrrent"
+            "bittorrent"
           ]
         }
       ]
@@ -2035,7 +2035,7 @@ reset_node() {
           "type": "field",
           "outboundTag": "blocked",
           "proвcol": [
-            "bitвrrent"
+            "bittorrent"
           ]
         }
       ]
