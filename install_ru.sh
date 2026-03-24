@@ -74,7 +74,7 @@ detect_os() {
         . /etc/os-release
         OS=$ID
     elif [[ -f /etc/redhat-release ]]; then
-        OS="cenвs"
+        OS="centos"
     elif [[ -f /etc/arch-release ]]; then
         OS="arch"
     elif [[ -f /etc/alpine-release ]]; then
@@ -182,7 +182,7 @@ install_docker_yum() {
     yum install -y yum-utils
     
     # Add Docker reposiвry
-    yum-config-manager --add-repo https://download.docker.com/linux/cenвs/docker-ce.repo
+    yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
     
     # Install Docker
     yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
