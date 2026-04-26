@@ -24,11 +24,9 @@ NC='\033[0m' # No Color
 DEFAULT_PANEL_PORT=2053
 DEFAULT_SUB_PORT=2096
 DEFAULT_DB_PASSWORD="change_this_password"
-DEFAULT_NODE_PORT=8080
 # Get the directory where the script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="$SCRIPT_DIR"
-NODE_DIR="$SCRIPT_DIR/node"
 COMPOSE_FILE="docker-compose.yml"
 
 # Print banner
@@ -1234,6 +1232,8 @@ services:
     image: registry.konstpic.ru/sharx/sharx:latest
     container_name: sharx_app
     network_mode: host
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
     volumes:
       - \$PWD/cert/:/app/cert/
     environment:
@@ -1252,11 +1252,31 @@ $(echo -e "$env_vars")
       XUI_DB_PASSWORD: $db_password
       XUI_DB_NAME: xui_db
       XUI_DB_SSLMODE: disable
+      XUI_DOCKER_UPDATER_URL: http://127.0.0.1:8080/v1/update
+      XUI_DOCKER_UPDATER_TOKEN: \${WATCHTOWER_HTTP_API_TOKEN:-local-dev-insecure-watchtower-token}
     depends_on:
       postgres:
         condition: service_healthy
+      watchtower:
+        condition: service_started
     tty: true
     restart: unless-stopped
+
+  watchtower:
+    image: beatkind/watchtower:2.3.2
+    container_name: sharx_watchtower
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command:
+      - --http-api-update
+    environment:
+      WATCHTOWER_HTTP_API_TOKEN: \${WATCHTOWER_HTTP_API_TOKEN:-local-dev-insecure-watchtower-token}
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_CLEANUP: "true"
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
 
   postgres:
     image: registry.konstpic.ru/sharx/postgres:16-alpine
@@ -1306,6 +1326,8 @@ services:
   sharx:
     image: registry.konstpic.ru/sharx/sharx:latest
     container_name: sharx_app
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
     ports:
 $(echo -e "$ports_section")
     volumes:
@@ -1339,13 +1361,34 @@ $(echo -e "$env_vars")
       XUI_DB_PASSWORD: $db_password
       XUI_DB_NAME: xui_db
       XUI_DB_SSLMODE: disable
+      XUI_DOCKER_UPDATER_URL: http://watchtower:8080/v1/update
+      XUI_DOCKER_UPDATER_TOKEN: \${WATCHTOWER_HTTP_API_TOKEN:-local-dev-insecure-watchtower-token}
     depends_on:
       postgres:
         condition: service_healthy
+      watchtower:
+        condition: service_started
     networks:
       - xui_network
     tty: true
     restart: unless-stopped
+
+  watchtower:
+    image: beatkind/watchtower:2.3.2
+    container_name: sharx_watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command:
+      - --http-api-update
+    environment:
+      WATCHTOWER_HTTP_API_TOKEN: \${WATCHTOWER_HTTP_API_TOKEN:-local-dev-insecure-watchtower-token}
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_CLEANUP: "true"
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+    networks:
+      - xui_network
 
   postgres:
     image: registry.konstpic.ru/sharx/postgres:16-alpine
@@ -1376,794 +1419,6 @@ EOF
     print_success "Docker Compose file created with bridge network mode!"
 }
 
-# ============================================
-# NODE FUNCTIONS
-# ============================================
-
-# Create node docker-compose.yml with host network
-create_node_compose_host() {
-    local node_port="$1"
-    
-    cat > "$NODE_DIR/$COMPOSE_FILE" << EOF
-services:
-  node:
-    image: registry.konstpic.ru/sharx/sharxnode:latest
-    container_name: sharx-node
-    network_mode: host
-    restart: unless-stopped
-    volumes:
-      - \$PWD/bin/config.json:/app/bin/config.json
-      - \$PWD/bin/node-config.json:/app/bin/node-config.json
-      - \$PWD/logs:/app/logs
-      - \$PWD/cert:/app/cert
-    environment:
-      - NODE_TLS_CERT_FILE=/app/cert/fullchain.pem
-      - NODE_TLS_KEY_FILE=/app/cert/privkey.pem
-EOF
-    
-    print_success "Node Docker Compose file created with host network mode!"
-}
-
-# Create node docker-compose.yml with bridge network (port mapping)
-create_node_compose_bridge() {
-    local node_port="$1"
-    shift
-    local xray_ports=("$@")
-    
-    # Build ports section
-    local ports_section="      - \"$node_port:8080\"  # API порт (подключение к панели)"
-    
-    for port in "${xray_ports[@]}"; do
-        if [[ -n "$port" ]]; then
-            ports_section="${ports_section}\n      - \"$port:$port\"  # Xray inbound port"
-        fi
-    done
-    
-    cat > "$NODE_DIR/$COMPOSE_FILE" << EOF
-services:
-  node:
-    image: registry.konstpic.ru/sharx/sharxnode:latest
-    container_name: sharx-node
-    restart: unless-stopped
-    ports:
-$(echo -e "$ports_section")
-    volumes:
-      - \$PWD/bin/config.json:/app/bin/config.json
-      - \$PWD/bin/node-config.json:/app/bin/node-config.json
-      - \$PWD/logs:/app/logs
-      - \$PWD/cert:/app/cert
-    environment:
-      - NODE_TLS_CERT_FILE=/app/cert/fullchain.pem
-      - NODE_TLS_KEY_FILE=/app/cert/privkey.pem
-    networks:
-      - node_network
-
-networks:
-  node_network:
-    driver: bridge
-EOF
-    
-    print_success "Node Docker Compose file created with bridge network mode!"
-}
-
-# Save node configuration
-save_node_config() {
-    local node_port="$1"
-    local network_mode="$2"
-    local cert_type="$3"
-    local domain_or_ip="$4"
-    shift 4
-    local xray_ports=("$@")
-    
-    cat > "$NODE_DIR/.node-config" << EOF
-# SharX Node Configuration
-# Generated: $(date)
-
-NODE_PORT=$node_port
-NETWORK_MODE=$network_mode
-CERT_TYPE=$cert_type
-DOMAIN_OR_IP=$domain_or_ip
-NODE_DIR=$NODE_DIR
-XRAY_PORTS=($(IFS=' '; echo "${xray_ports[*]}"))
-EOF
-    
-    chmod 600 "$NODE_DIR/.node-config"
-}
-
-# Load node configuration
-load_node_config() {
-    if [[ -f "$NODE_DIR/.node-config" ]]; then
-        source "$NODE_DIR/.node-config"
-        # Initialize XRAY_PORTS if not set
-        if [[ -z "${XRAY_PORTS[@]}" ]]; then
-            XRAY_PORTS=()
-        fi
-        return 0
-    fi
-    return 1
-}
-
-# Start node services
-start_node_services() {
-    print_info "Запуск сервисов узла..."
-    cd "$NODE_DIR"
-    docker compose up -d
-    
-    # Wait for services to start
-    sleep 3
-    
-    if docker compose ps | grep -q "Up"; then
-        print_success "Узел успешно запущен!"
-    else
-        print_error "Не удалось запустить узел. Проверьте логи: docker compose logs"
-        return 1
-    fi
-}
-
-# Stop node services
-stop_node_services() {
-    print_info "Остановка сервисов узла..."
-    cd "$NODE_DIR"
-    docker compose down
-    print_success "Узел остановлен!"
-}
-
-# Update node
-update_node() {
-    print_banner
-    echo ""
-    echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${YELLOW}║                  ⚠️  ВАЖНОЕ ПРЕДУПРЕЖДЕНИЕ ⚠️                ║${NC}"
-    echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    echo ""
-    echo -e "${RED}Перед обновлением узла мы НАСТОЯТЕЛЬНО РЕКОМЕНДУЕМ создать резервную копию!${NC}"
-    echo ""
-    echo -e "${CYAN}Если у вас есть панель с базой данных, сначала создайте резервную копию базы данных панели:${NC}"
-    echo -e "  ${YELLOW}docker exec -t \$(docker ps -qf name=postgres) pg_dump -U xui_user xui_db > backup_\$(date +%Y%m%d_%H%M%S).sql${NC}"
-    echo ""
-    echo -e "${CYAN}Или используйте встроенную функцию резервного копирования в панели: Настройки → Резервное копирование.${NC}"
-    echo ""
-    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-    
-    while true; do
-        echo -e -n "${CYAN}Вы создали резервную копию? (да/нет): ${NC}"
-        read -r backup_confirm
-        case "$backup_confirm" in
-            [Дд][Аа]|[Дд]|[Yy][Ee][Ss]|[Yy])
-                break
-                ;;
-            [Нн][Ее][Тт]|[Нн]|[Nn][Oo]|[Nn])
-                echo ""
-                echo -e "${YELLOW}Вы хотите продолжить без резервной копии? (да/нет): ${NC}"
-                read -r continue_confirm
-                case "$continue_confirm" in
-                    [Дд][Аа]|[Дд]|[Yy][Ee][Ss]|[Yy])
-                        echo -e "${YELLOW}Продолжаем обновление без резервной копии...${NC}"
-                        echo ""
-                        break
-                        ;;
-                    [Нн][Ее][Тт]|[Нн]|[Nn][Oo]|[Nn]|*)
-                        echo -e "${GREEN}Обновление отменено. Пожалуйста, сначала создайте резервную копию.${NC}"
-                        return 1
-                        ;;
-                esac
-                ;;
-            *)
-                echo -e "${RED}Пожалуйста, ответьте 'да' или 'нет'.${NC}"
-                ;;
-        esac
-    done
-    
-    echo ""
-    print_info "Обновление узла..."
-    cd "$NODE_DIR"
-    
-    print_info "Шаг 1/3: Загрузка нового образа узла..."
-    docker compose pull node
-    
-    print_info "Шаг 2/3: Остановка и удаление старого контейнера..."
-    docker compose stop node
-    docker compose rm -f node
-    
-    print_info "Шаг 3/3: Запуск узла с новым образом..."
-    docker compose up -d node
-    
-    # Cleanup old images
-    print_info "Очистка старых образов..."
-    docker image prune -f
-    
-    print_success "Узел успешно обновлен!"
-}
-
-# Show node status
-show_node_status() {
-    print_info "Статус сервисов узла:"
-    echo ""
-    cd "$NODE_DIR"
-    docker compose ps
-    echo ""
-    
-    if load_node_config; then
-        echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        echo -e "${WHITE}Configuration:${NC}"
-        echo -e "  Порт узла:     ${GREEN}$NODE_PORT${NC}"
-        echo -e "  Режим сети:    ${GREEN}$NETWORK_MODE${NC}"
-        echo -e "  Certificate:   ${GREEN}$CERT_TYPE${NC}"
-        echo -e "  Domain/IP:     ${GREEN}$DOMAIN_OR_IP${NC}"
-        echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        
-        if [[ "$CERT_TYPE" != "none" ]]; then
-            echo ""
-            echo -e "${WHITE}SSL paths for node:${NC}"
-            echo -e "  Certificate:  ${CYAN}/app/cert/fullchain.pem${NC}"
-            echo -e "  Private Key:  ${CYAN}/app/cert/privkey.pem${NC}"
-        fi
-    fi
-}
-
-# Node installation wizard
-install_node_wizard() {
-    print_banner
-    echo ""
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${WHITE}          SharX Мастер установки узла${NC}"
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-    
-    check_root
-    check_system
-    
-    # Step 1: Install Docker
-    echo ""
-    echo -e "${PURPLE}[Шаг 1/4]${NC} Установка Docker"
-    install_docker
-    install_docker_compose
-    
-    # Step 2: Network mode
-    echo ""
-    echo -e "${PURPLE}[Шаг 2/4]${NC} Настройка сети"
-    echo -e "${CYAN}Выберите режим сети:${NC}"
-    echo "1) Сеть хоста (рекомендуется для узлов)"
-    echo "   - Прямой доступ ко всем портам"
-    echo "   - Лучшая производительность"
-    echo ""
-    echo "2) Мостовая сеть с пробросом портов"
-    echo "   - Изолированный контейнер"
-    echo "   - Необходимо вручную открывать порты для входящих подключений"
-    echo ""
-    read -p "Выберите [1-2, по умолчанию: 1]: " network_choice
-    network_choice=${network_choice:-1}
-    
-    local network_mode="host"
-    if [[ "$network_choice" == "2" ]]; then
-        network_mode="bridge"
-    fi
-    
-    # Step 3: Port configuration (only for bridge mode)
-    local node_port=$DEFAULT_NODE_PORT
-    local xray_ports=()
-    
-    if [[ "$network_mode" == "bridge" ]]; then
-        echo ""
-        echo -e "${PURPLE}[Шаг 3/4]${NC} Настройка портов"
-        
-        # Validate and get API port
-        node_port=$(prompt_port "$DEFAULT_NODE_PORT" "API узла")
-        if [[ $? -ne 0 ]]; then
-            print_error "Ошибка настройки портов"
-            exit 1
-        fi
-        
-        # Ask for Xray ports
-        echo ""
-        echo -e "${CYAN}Добавить порты для входящих подключений Xray?${NC}"
-        echo -e "${YELLOW}Эти порты будут использоваться для трафика Xray (например, 443, 8443, 2053)${NC}"
-        read -p "Добавить порты Xray? [y/N]: " add_xray
-        
-        if [[ "$add_xray" == "y" || "$add_xray" == "Y" ]]; then
-            while true; do
-                echo ""
-                read -p "Введите порт Xray (или 'done' для завершения): " xray_port
-                
-                if [[ "$xray_port" == "done" || "$xray_port" == "" ]]; then
-                    break
-                fi
-                
-                if validate_port "$xray_port" "Xray"; then
-                    xray_ports+=("$xray_port")
-                    echo -e "${GREEN}Порт $xray_port добавлен${NC}"
-                else
-                    read -p "Пропустить этот порт? [y/N]: " skip
-                    if [[ "$skip" != "y" && "$skip" != "Y" ]]; then
-                        continue
-                    fi
-                fi
-            done
-        fi
-    else
-        echo ""
-        echo -e "${PURPLE}[Шаг 3/4]${NC} Настройка портов"
-        echo -e "${YELLOW}Используется сеть хоста - узел будет слушать порт 8080 по умолчанию${NC}"
-        node_port=8080
-    fi
-    
-    # Step 4: SSL Certificate
-    echo ""
-    echo -e "${PURPLE}[Шаг 4/4]${NC} Настройка SSL сертификата"
-    local server_ip=$(get_server_ip)
-    echo -e "IPv4 вашего сервера: ${GREEN}$server_ip${NC}"
-    
-    local detected_ipv6=$(get_server_ipv6)
-    if [[ -n "$detected_ipv6" ]]; then
-        echo -e "IPv6 вашего сервера: ${GREEN}$detected_ipv6${NC}"
-    fi
-    
-    # Create node directory structure
-    mkdir -p "$NODE_DIR/cert"
-    mkdir -p "$NODE_DIR/bin"
-    mkdir -p "$NODE_DIR/logs"
-    
-    # Create default config files if not exist
-    if [[ ! -f "$NODE_DIR/bin/config.json" ]]; then
-        cat > "$NODE_DIR/bin/config.json" << 'NODECONFIG'
-{
-    "log": {
-      "access": "none",
-      "dnsLog": false,
-      "error": "",
-      "loglevel": "warning",
-      "maskAddress": ""
-    },
-    "api": {
-      "tag": "api",
-      "services": [
-        "HandlerService",
-        "LoggerService",
-        "StatsService"
-      ]
-    },
-    "inbounds": [
-      {
-        "tag": "api",
-        "listen": "127.0.0.1",
-        "port": 62789,
-        "proвcol": "tunnel",
-        "settings": {
-          "address": "127.0.0.1"
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "direct",
-        "proвcol": "freedom",
-        "settings": {
-          "domainStrategy": "AsIs",
-          "redirect": "",
-          "noises": []
-        }
-      },
-      {
-        "tag": "blocked",
-        "proвcol": "blackhole",
-        "settings": {}
-      }
-    ],
-    "policy": {
-      "levels": {
-        "0": {
-          "statsUserDownlink": true,
-          "statsUserUplink": true
-        }
-      },
-      "system": {
-        "statsInboundDownlink": true,
-        "statsInboundUplink": true,
-        "statsOutboundDownlink": false,
-        "statsOutboundUplink": false
-      }
-    },
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": [
-        {
-          "type": "field",
-          "inboundTag": [
-            "api"
-          ],
-          "outboundTag": "api"
-        },
-        {
-          "type": "field",
-          "outboundTag": "blocked",
-          "ip": [
-            "geoip:private"
-          ]
-        },
-        {
-          "type": "field",
-          "outboundTag": "blocked",
-          "proвcol": [
-            "bittorrent"
-          ]
-        }
-      ]
-    },
-    "stats": {},
-    "metrics": {
-      "tag": "metrics_out",
-      "listen": "127.0.0.1:11111"
-    }
-  }
-NODECONFIG
-    fi
-    
-    if [[ ! -f "$NODE_DIR/bin/node-config.json" ]]; then
-        echo '{}' > "$NODE_DIR/bin/node-config.json"
-    fi
-    
-    # Initialize SSL variables
-    SSL_HOST="$server_ip"
-    CERT_TYPE="none"
-    
-    # Check for existing panel certificates (if node is on same server as panel)
-    if check_panel_certificates "$NODE_DIR/cert"; then
-        # Сертификаты скопированы из panel
-        CERT_TYPE="letsencrypt-ip"
-        SSL_HOST="$server_ip"
-        # Try to get cert type from panel config
-        if [[ -f "$INSTALL_DIR/.3xui-config" ]]; then
-            source "$INSTALL_DIR/.3xui-config" 2>/dev/null
-            if [[ -n "$CERT_TYPE" ]]; then
-                # Keep panel's cert type
-                :
-            fi
-        fi
-    else
-        # Interactive SSL setup (reuse existing function but with NODE_DIR)
-        local original_install_dir="$INSTALL_DIR"
-        INSTALL_DIR="$NODE_DIR"
-        prompt_and_setup_ssl "$NODE_DIR/cert" "$server_ip"
-        INSTALL_DIR="$original_install_dir"
-    fi
-    
-    local cert_type="$CERT_TYPE"
-    local domain_or_ip="$SSL_HOST"
-    
-    # Create docker-compose
-    echo ""
-    print_info "Создание конфигурации Docker Compose..."
-    
-    if [[ "$network_mode" == "host" ]]; then
-        create_node_compose_host "$node_port"
-    else
-        create_node_compose_bridge "$node_port" "${xray_ports[@]}"
-    fi
-    
-    # Save configuration
-    save_node_config "$node_port" "$network_mode" "$cert_type" "$domain_or_ip" "${xray_ports[@]}"
-    
-    # Start services
-    start_node_services
-    
-    # Final summary
-    print_banner
-    echo ""
-    echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║         Установка узла успешно завершена!                     ║${NC}"
-    echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    echo ""
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-    echo -e "${WHITE}Узел теперь запущен!${NC}"
-    echo -e "  Порт API: ${GREEN}$node_port${NC}"
-    echo -e "  Сеть:     ${GREEN}$network_mode${NC}"
-    echo ""
-    
-    if [[ "$cert_type" != "none" ]]; then
-        echo -e "${GREEN}✓ SSL сертификат выпущен и сохранен в папку node/cert/${NC}"
-        if [[ "$cert_type" == "letsencrypt-ip" ]]; then
-            echo -e "${YELLOW}  (IP сертификат действителен ~6 дней, автоматически обновляется через acme.sh)${NC}"
-        elif [[ "$cert_type" == "letsencrypt-domain" ]]; then
-            echo -e "${YELLOW}  (доменный сертификат действителен 90 дней, автоматически обновляется через acme.sh)${NC}"
-        fi
-        echo ""
-    fi
-    
-    echo -e "${WHITE}Для подключения этого узла к панели:${NC}"
-    echo -e "  1. Откройте веб-интерфейс панели"
-    echo -e "  2. Перейдите в Управление узлами"
-    echo -e "  3. Добавьте новый узел с адресом: ${CYAN}$server_ip:$node_port${NC}"
-    echo ""
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-    echo -e "${WHITE}Управление:${NC}"
-    echo -e "  ${CYAN}./install_ru.sh${NC} - открыть меню управления"
-    echo ""
-}
-
-# Renew node certificate
-renew_node_certificate() {
-    if ! load_node_config; then
-        print_error "Конфигурация узла не найдена. Пожалуйста, сначала установите узел."
-        return 1
-    fi
-    
-    local cert_dir="$NODE_DIR/cert"
-    
-    # Check if acme.sh is installed
-    if ! command -v ~/.acme.sh/acme.sh &>/dev/null; then
-        print_error "acme.sh is not installed. Cannot renew certificate."
-        return 1
-    fi
-    
-    print_info "Renewing node certificate via acme.sh..."
-    
-    # Stop node to free port 80
-    cd "$NODE_DIR"
-    docker compose down 2>/dev/null || true
-    
-    if [[ "$CERT_TYPE" == "letsencrypt-domain" ]]; then
-        ~/.acme.sh/acme.sh --renew -d "$DOMAIN_OR_IP" --force
-        local acmeCertPath="/root/cert/${DOMAIN_OR_IP}"
-    else
-        ~/.acme.sh/acme.sh --renew -d "$DOMAIN_OR_IP" --force
-        local acmeCertPath="/root/cert/ip"
-    fi
-    
-    # Copy renewed certificates
-    if [[ -f "${acmeCertPath}/fullchain.pem" && -f "${acmeCertPath}/privkey.pem" ]]; then
-        cp "${acmeCertPath}/fullchain.pem" "${cert_dir}/"
-        cp "${acmeCertPath}/privkey.pem" "${cert_dir}/"
-        chmod 600 "${cert_dir}/privkey.pem"
-        chmod 644 "${cert_dir}/fullchain.pem"
-        print_success "Node certificate renewed successfully!"
-    else
-        print_error "Файлы сертификата не найдены"
-    fi
-    
-    # Restart node
-    docker compose up -d
-}
-
-# Reset node (clear node-config.json)
-reset_node() {
-    if ! load_node_config; then
-        print_error "Конфигурация узла не найдена. Пожалуйста, сначала установите узел."
-        return 1
-    fi
-    
-    echo -e "${RED}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${RED}║                  ПРЕДУПРЕЖДЕНИЕ: СБРОС УЗЛА                   ║${NC}"
-    echo -e "${RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    echo ""
-    echo "Это приведет к:"
-    echo "  - Очистке node-config.json (сброс узла к состоянию по умолчанию)"
-    echo "  - Сбросу config.json к конфигурации по умолчанию"
-    echo "  - Остановке и запуску контейнера узла"
-    echo "  - Узел потребует повторной регистрации в панели"
-    echo ""
-    read -p "Вы уверены? [y/N]: " confirm
-    
-    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-        return 0
-    fi
-    
-    print_info "Resetting node..."
-    
-    # Clear node-config.json
-    echo '{}' > "$NODE_DIR/bin/node-config.json"
-    
-    # Reset config.json to default
-    cat > "$NODE_DIR/bin/config.json" << 'NODECONFIG'
-{
-    "log": {
-      "access": "none",
-      "dnsLog": false,
-      "error": "",
-      "loglevel": "warning",
-      "maskAddress": ""
-    },
-    "api": {
-      "tag": "api",
-      "services": [
-        "HandlerService",
-        "LoggerService",
-        "StatsService"
-      ]
-    },
-    "inbounds": [
-      {
-        "tag": "api",
-        "listen": "127.0.0.1",
-        "port": 62789,
-        "proвcol": "tunnel",
-        "settings": {
-          "address": "127.0.0.1"
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "direct",
-        "proвcol": "freedom",
-        "settings": {
-          "domainStrategy": "AsIs",
-          "redirect": "",
-          "noises": []
-        }
-      },
-      {
-        "tag": "blocked",
-        "proвcol": "blackhole",
-        "settings": {}
-      }
-    ],
-    "policy": {
-      "levels": {
-        "0": {
-          "statsUserDownlink": true,
-          "statsUserUplink": true
-        }
-      },
-      "system": {
-        "statsInboundDownlink": true,
-        "statsInboundUplink": true,
-        "statsOutboundDownlink": false,
-        "statsOutboundUplink": false
-      }
-    },
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": [
-        {
-          "type": "field",
-          "inboundTag": [
-            "api"
-          ],
-          "outboundTag": "api"
-        },
-        {
-          "type": "field",
-          "outboundTag": "blocked",
-          "ip": [
-            "geoip:private"
-          ]
-        },
-        {
-          "type": "field",
-          "outboundTag": "blocked",
-          "proвcol": [
-            "bittorrent"
-          ]
-        }
-      ]
-    },
-    "stats": {},
-    "metrics": {
-      "tag": "metrics_out",
-      "listen": "127.0.0.1:11111"
-    }
-  }
-NODECONFIG
-    
-    # Stop and start node (instead of restart)
-    cd "$NODE_DIR"
-    docker compose stop node
-    docker compose start node
-    
-    print_success "Узел успешно сброшен! Узел необходимо повторно зарегистрировать в панели."
-}
-
-# Add port to node
-add_node_port() {
-    if ! load_node_config; then
-        print_error "Конфигурация узла не найдена. Пожалуйста, сначала установите узел."
-        return 1
-    fi
-    
-    if [[ "$NETWORK_MODE" != "bridge" ]]; then
-        print_error "Управление портами доступно только в режиме мостовой сети!"
-        return 1
-    fi
-    
-    echo ""
-    echo -e "${CYAN}Добавить порт Xray к узлу${NC}"
-    
-    local new_port=$(prompt_port "" "Xray")
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-    
-    # Check if port already exists
-    if [[ " ${XRAY_PORTS[@]} " =~ " ${new_port} " ]]; then
-        print_error "Порт $new_port уже настроен!"
-        return 1
-    fi
-    
-    # Add port to array
-    XRAY_PORTS+=("$new_port")
-    
-    # Recreate compose file
-    if [[ "$NETWORK_MODE" == "bridge" ]]; then
-        create_node_compose_bridge "$NODE_PORT" "${XRAY_PORTS[@]}"
-    fi
-    
-    # Save config
-    save_node_config "$NODE_PORT" "$NETWORK_MODE" "$CERT_TYPE" "$DOMAIN_OR_IP" "${XRAY_PORTS[@]}"
-    
-    # Restart node
-    cd "$NODE_DIR"
-    docker compose down
-    docker compose up -d
-    
-    print_success "Порт $new_port добавлен и узел перезапущен!"
-}
-
-# Remove port from node
-remove_node_port() {
-    if ! load_node_config; then
-        print_error "Конфигурация узла не найдена. Пожалуйста, сначала установите узел."
-        return 1
-    fi
-    
-    if [[ "$NETWORK_MODE" != "bridge" ]]; then
-        print_error "Управление портами доступно только в режиме мостовой сети!"
-        return 1
-    fi
-    
-    if [[ ${#XRAY_PORTS[@]} -eq 0 ]]; then
-        print_error "No Xray ports configured!"
-        return 1
-    fi
-    
-    echo ""
-    echo -e "${CYAN}Remove Xray port from node${NC}"
-    echo ""
-    echo "Current Xray ports:"
-    for i in "${!XRAY_PORTS[@]}"; do
-        echo "  $((i+1))) ${XRAY_PORTS[$i]}"
-    done
-    echo ""
-    
-    read -p "Введите номер порта для удаления: " port_to_remove
-    
-    # Find and remove port
-    local new_ports=()
-    local found=0
-    for port in "${XRAY_PORTS[@]}"; do
-        if [[ "$port" != "$port_to_remove" ]]; then
-            new_ports+=("$port")
-        else
-            found=1
-        fi
-    done
-    
-    if [[ $found -eq 0 ]]; then
-        print_error "Порт $port_to_remove не найден!"
-        return 1
-    fi
-    
-    XRAY_PORTS=("${new_ports[@]}")
-    
-    # Recreate compose file
-    create_node_compose_bridge "$NODE_PORT" "${XRAY_PORTS[@]}"
-    
-    # Save config
-    save_node_config "$NODE_PORT" "$NETWORK_MODE" "$CERT_TYPE" "$DOMAIN_OR_IP" "${XRAY_PORTS[@]}"
-    
-    # Restart node
-    cd "$NODE_DIR"
-    docker compose down
-    docker compose up -d
-    
-    print_success "Порт $port_to_remove удален и узел перезапущен!"
-}
-
-# ============================================
-# END NODE FUNCTIONS
-# ============================================
 # WARP install
 warp_install() {
     echo -e "\e[38;2;0;255;255m--- 1. Установка Cloudflare WARP ---\e[0m"
@@ -2378,15 +1633,15 @@ update_services() {
     print_info "Обновление панели SharX..."
     cd "$INSTALL_DIR"
     
-    print_info "Шаг 1/3: Загрузка нового образа панели..."
-    docker compose pull sharx
+    print_info "Шаг 1/3: Загрузка новых образов (панель + watchtower)..."
+    docker compose pull sharx watchtower
     
-    print_info "Шаг 2/3: Остановка и удаление старого контейнера..."
-    docker compose stop sharx
-    docker compose rm -f sharx
+    print_info "Шаг 2/3: Остановка и удаление старых контейнеров..."
+    docker compose stop sharx watchtower
+    docker compose rm -f sharx watchtower
     
-    print_info "Шаг 3/3: Запуск панели с новым образом..."
-    docker compose up -d sharx
+    print_info "Шаг 3/3: Запуск с новыми образами..."
+    docker compose up -d sharx watchtower
     
     # Cleanup old images
     print_info "Очистка старых образов..."
@@ -2586,36 +1841,6 @@ check_existing_certificates() {
     else
         return 1
     fi
-}
-
-# Check for certificates from panel installation (for node on same server)
-check_panel_certificates() {
-    local node_cert_dir="$1"
-    local panel_cert_dir="$INSTALL_DIR/cert"
-    
-    # Check if panel certificates exist
-    if [[ -f "${panel_cert_dir}/fullchain.pem" && -f "${panel_cert_dir}/privkey.pem" ]]; then
-        print_info "Найдены существующие сертификаты панели в ${panel_cert_dir}"
-        
-        echo ""
-        echo -e "${CYAN}Panel certificates detected!${NC}"
-        echo -e "Certificate path: ${GREEN}${panel_cert_dir}${NC}"
-        echo ""
-        read -p "Use panel certificates for node? [Y/n]: " use_panel_certs
-        
-        if [[ "$use_panel_certs" != "n" && "$use_panel_certs" != "N" ]]; then
-            print_info "Copying panel certificates to node..."
-            mkdir -p "$node_cert_dir"
-            cp "${panel_cert_dir}/fullchain.pem" "${node_cert_dir}/"
-            cp "${panel_cert_dir}/privkey.pem" "${node_cert_dir}/"
-            chmod 600 "${node_cert_dir}/privkey.pem" 2>/dev/null
-            chmod 644 "${node_cert_dir}/fullchain.pem" 2>/dev/null
-            print_success "Certificates copied to node!"
-            return 0
-        fi
-    fi
-    
-    return 1
 }
 
 # Get panel status for menu display
@@ -3008,7 +2233,8 @@ show_instructions() {
     echo -e "  3. ${CYAN}Измените пароль${NC} немедленно в Настройки → Аккаунт"
     echo -e "  4. ${CYAN}Добавьте входящее подключение${NC} в разделе Входящие для начала использования сервиса"
     echo -e "  5. ${CYAN}Создайте пользователей${NC} и поделитесь ссылками на подписки"
-    echo -e "  6. ${CYAN}Подключите узлы${NC} (опционально): Установите сервис узла и зарегистрируйте через API"
+    echo -e "  6. ${CYAN}Удалённые узлы${NC} (опционально): добавляйте и ведите в веб-панели (Ноды / География)."
+    echo -e "     Образ воркера-узла на отдельном сервере: см. node/README.md в исходниках SharX."
     echo ""
     
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -3441,18 +2667,6 @@ uninstall() {
     # Remove panel config file
     rm -f "$INSTALL_DIR/.3xui-config" 2>/dev/null || true
     
-    # Ask about node uninstall
-    if [[ -f "$NODE_DIR/.node-config" ]]; then
-        read -p "Также удалить узел? [y/N]: " remove_node
-        if [[ "$remove_node" == "y" || "$remove_node" == "Y" ]]; then
-            print_info "Удаление узла..."
-            cd "$NODE_DIR" 2>/dev/null || true
-            docker compose down 2>/dev/null || true
-            rm -f "$NODE_DIR/.node-config" 2>/dev/null || true
-            print_success "Узел удален!"
-        fi
-    fi
-    
     # Remove acme.sh certificates (optional)
     read -p "Удалить сертификаты acme.sh? [y/N]: " remove_acme
     if [[ "$remove_acme" == "y" || "$remove_acme" == "Y" ]]; then
@@ -3465,7 +2679,6 @@ uninstall() {
     read -p "Удалить локальные сертификаты из папок cert/? [y/N]: " remove_local_cert
     if [[ "$remove_local_cert" == "y" || "$remove_local_cert" == "Y" ]]; then
         rm -f "$INSTALL_DIR/cert/"*.pem 2>/dev/null || true
-        rm -f "$NODE_DIR/cert/"*.pem 2>/dev/null || true
         print_info "Локальные сертификаты удалены"
     fi
     
@@ -3953,7 +3166,7 @@ install_wizard() {
     
     echo ""
     echo -e "${GREEN}Установка завершена!${NC}"
-    echo -e "${CYAN}Для подробных инструкций выберите опцию 16) Инструкции из меню.${NC}"
+    echo -e "${CYAN}Для подробных инструкций выберите опцию 23) Инструкции из меню.${NC}"
     echo ""
 }
 
@@ -4031,19 +3244,6 @@ main_menu() {
         echo -e "  ${WHITE}── Информация ──${NC}"
         echo -e "  ${CYAN}23)${NC} Инструкции"
         echo ""
-        echo -e "  ${WHITE}── Узел ──${NC}"
-        echo -e "  ${LIME}30)${NC} Установить узел"
-        echo -e "  ${LIME}31)${NC} Обновить узел"
-        echo -e "  ${LIME}32)${NC} Запустить узел"
-        echo -e "  ${LIME}33)${NC} Остановить узел"
-        echo -e "  ${LIME}34)${NC} Перезапустить узел"
-        echo -e "  ${LIME}35)${NC} Статус узла"
-        echo -e "  ${LIME}36)${NC} Логи узла"
-        echo -e "  ${LIME}37)${NC} Обновить сертификат узла"
-        echo -e "  ${LIME}38)${NC} Добавить порт узла"
-        echo -e "  ${LIME}39)${NC} Удалить порт узла"
-        echo -e "  ${LIME}40)${NC} Сбросить узел"
-        echo ""
         echo -e "  ${WHITE}── Дополнительно ──${NC}"
         echo -e "  ${CYAN}50)${NC} Установить WARP"
         echo -e "  ${RED}98)${NC} Удалить WARP"
@@ -4104,26 +3304,6 @@ main_menu() {
             # Information
             23) show_instructions ;;
             
-            # Node options
-            30) install_node_wizard ;;
-            31) update_node ;;
-            32) start_node_services ;;
-            33) stop_node_services ;;
-            34) 
-                cd "$NODE_DIR"
-                docker compose restart
-                print_success "Узел перезапущен!"
-                ;;
-            35) show_node_status ;;
-            36) 
-                cd "$NODE_DIR"
-                docker compose logs -f
-                ;;
-            37) renew_node_certificate ;;
-            38) add_node_port ;;
-            39) remove_node_port ;;
-            40) reset_node ;;
-            
             # Other
             50) warp_install ;;
             98) warp_uninstall ;;
@@ -4145,7 +3325,7 @@ main_menu() {
 # Script entry point
 main() {
     # Check if config exists (already installed)
-    if [[ -f "$INSTALL_DIR/.3xui-config" ]] || [[ -f "$NODE_DIR/.node-config" ]]; then
+    if [[ -f "$INSTALL_DIR/.3xui-config" ]]; then
         main_menu
     else
         # First run - check for arguments
@@ -4153,10 +3333,6 @@ main() {
             install|--install|-i)
                 check_root
                 install_wizard
-                ;;
-            node|--node|-n)
-                check_root
-                install_node_wizard
                 ;;
             menu|--menu|-m)
                 check_root
@@ -4168,11 +3344,10 @@ main() {
                 echo ""
                 echo -e "${CYAN}Добро пожаловать в установщик SharX!${NC}"
                 echo ""
-                echo -e "${WHITE}Что вы хотите установить?${NC}"
+                echo -e "${WHITE}Что вы хотите сделать?${NC}"
                 echo ""
                 echo -e "  ${GREEN}1)${NC} Установить панель (с базой данных)"
-                echo -e "  ${LIME}2)${NC} Установить узел (автономный)"
-                echo -e "  ${YELLOW}3)${NC} Открыть меню"
+                echo -e "  ${YELLOW}2)${NC} Открыть меню"
                 echo -e "  ${WHITE}0)${NC} Выход"
                 echo ""
                 read -p "Выберите опцию: " first_choice
@@ -4183,10 +3358,6 @@ main() {
                         install_wizard
                         ;;
                     2)
-                        check_root
-                        install_node_wizard
-                        ;;
-                    3)
                         check_root
                         main_menu
                         ;;

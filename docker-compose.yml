@@ -1,7 +1,12 @@
+# In-stack updater: Watchtower (no host ports). Panel calls http://watchtower:8080/v1/update.
+# Set WATCHTOWER_HTTP_API_TOKEN in .env for production (e.g. openssl rand -hex 24).
+# Image: beatkind/watchtower — see https://github.com/beatkind/watchtower
 services:
   sharx:
     image: registry.konstpic.ru/sharx/sharx:latest
     container_name: sharx_app
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
     # hostname: yourhostname
     ports:
       - "2053:2053"   # Web UI
@@ -37,14 +42,35 @@ services:
       XUI_DB_PASSWORD: change_this_password
       XUI_DB_NAME: xui_db
       XUI_DB_SSLMODE: disable
+      XUI_DOCKER_UPDATER_URL: http://watchtower:8080/v1/update
+      XUI_DOCKER_UPDATER_TOKEN: ${WATCHTOWER_HTTP_API_TOKEN:-local-dev-insecure-watchtower-token}
     depends_on:
       postgres:
         condition: service_healthy
+      watchtower:
+        condition: service_started
     networks:
       - sharx_network
     tty: true
 #    network_mode: host
     restart: unless-stopped
+
+  watchtower:
+    image: beatkind/watchtower:2.3.2
+    container_name: sharx_watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command:
+      - --http-api-update
+    environment:
+      WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_HTTP_API_TOKEN:-local-dev-insecure-watchtower-token}
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_CLEANUP: "true"
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+    networks:
+      - sharx_network
 
   postgres:
     image: registry.konstpic.ru/sharx/postgres:16-alpine

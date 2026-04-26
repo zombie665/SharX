@@ -77,18 +77,6 @@ sudo ./install_ru.sh
 # Выбрать: 1) Установить панель
 ```
 
-#### Node Installation / Установка узла 
-
-```bash
-sudo ./install.sh
-# Select: 2) Install Node
-```
-
-```bash
-sudo ./install_ru.sh
-# Выбрать: 2) Установить узел
-```
-
 #### Management Menu / Меню управления
 
 After installation, run the script again to access the management menu:
@@ -100,11 +88,15 @@ sudo ./install.sh
 ```
 
 **Menu options / Опции меню:**
-- Update Panel/Node
+- Update Panel / Обновить панель
 - Start/Stop/Restart services
 - Change ports
 - Renew SSL certificates
 - View logs and status
+
+**Panel updates / Обновление панели:** **Watchtower** in the same stack + `XUI_DOCKER_UPDATER_*` (in-UI update), or `docker compose pull` + `up -d`, or the script’s **Update Panel** (pulls `sharx` + `watchtower`). / **Watchtower** в стеке и обновление из UI, либо `docker compose pull`, либо пункт **2)** в скрипте. Set `WATCHTOWER_HTTP_API_TOKEN` in production. / В production задайте `WATCHTOWER_HTTP_API_TOKEN` в `.env`.
+
+**Remote nodes / Удалённые узлы:** add and manage in the web UI (Nodes / Geography / Ноды). The install script only deploys the panel stack. / Добавляйте и ведите узлы в веб-интерфейсе. Скрипт ставит только панель. For a separate node worker, see [sharx-code/node/README.md](../sharx-code/node/README.md). / Для отдельного worker см. [sharx-code/node/README.md](../sharx-code/node/README.md).
 
 </details>
 
@@ -159,37 +151,7 @@ sudo ./install.sh
    - Certificate: `/app/cert/fullchain.pem`
    - Private Key: `/app/cert/privkey.pem`
 
-### Node Installation / Установка узла
-
-1. **Navigate to node directory / Перейдите в папку узла:**
-   ```bash
-   cd node
-   ```
-
-2. **Configure `docker-compose.yml` / Настройте `docker-compose.yml`:**
-   - **Specify image version / Укажите версию образа:** You can manually set a specific version tag
-   - **Указать версию образа:** Вы можете вручную указать конкретную версию
-   ```yaml
-   services:
-     node:
-       image: registry.konstpic.ru/sharx/sharxnode:latest  # Specify version here / Укажите версию здесь
-   ```
-
-3. **Prepare certificates / Подготовьте сертификаты:**
-   ```bash
-   mkdir -p cert
-   cp /path/to/fullchain.pem cert/fullchain.pem
-   cp /path/to/privkey.pem cert/privkey.pem
-   ```
-
-4. **Start the node / Запустите узел:**
-   ```bash
-   docker compose up -d
-   ```
-
-5. **Connect to panel / Подключите к панели:**
-   - Add new node in panel's Node Management
-   - Добавьте новый узел в управлении узлами панели
+7. **Remote nodes (optional) / Удалённые узлы (по желанию):** use the web panel to register and manage nodes. For running a **separate** node container elsewhere, see [sharx-code/node/README.md](../sharx-code/node/README.md) in the monorepo. / Узлы настраиваются в веб-панели. Отдельный worker — [sharx-code/node/README.md](../sharx-code/node/README.md).
 
 </details>
 
