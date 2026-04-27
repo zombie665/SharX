@@ -1265,18 +1265,21 @@ $(echo -e "$env_vars")
   watchtower:
     image: beatkind/watchtower:2.3.2
     container_name: sharx_watchtower
-    network_mode: host
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     command:
       - --http-api-update
+    ports:
+      - "127.0.0.1:8080:8080"
     environment:
       WATCHTOWER_HTTP_API_TOKEN: \${WATCHTOWER_HTTP_API_TOKEN:-local-dev-insecure-watchtower-token}
       WATCHTOWER_LABEL_ENABLE: "true"
       WATCHTOWER_CLEANUP: "true"
     labels:
       com.centurylinklabs.watchtower.enable: "false"
+    networks:
+      - xui_network
 
   postgres:
     image: registry.konstpic.ru/sharx/postgres:16-alpine
@@ -1295,6 +1298,10 @@ $(echo -e "$env_vars")
       timeout: 5s
       retries: 5
       start_period: 10s
+
+networks:
+  xui_network:
+    driver: bridge
 EOF
     
     print_success "Docker Compose file created with host network mode!"
