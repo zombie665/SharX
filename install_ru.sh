@@ -1252,7 +1252,7 @@ $(echo -e "$env_vars")
       XUI_DB_PASSWORD: $db_password
       XUI_DB_NAME: xui_db
       XUI_DB_SSLMODE: disable
-      XUI_DOCKER_UPDATER_URL: http://127.0.0.1:8080/v1/update
+      XUI_DOCKER_UPDATER_URL: http://127.0.0.1:8081/v1/update
       XUI_DOCKER_UPDATER_TOKEN: \${WATCHTOWER_HTTP_API_TOKEN:-local-dev-insecure-watchtower-token}
     depends_on:
       postgres:
@@ -1271,7 +1271,7 @@ $(echo -e "$env_vars")
     command:
       - --http-api-update
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8081:8080"
     environment:
       WATCHTOWER_HTTP_API_TOKEN: \${WATCHTOWER_HTTP_API_TOKEN:-local-dev-insecure-watchtower-token}
       WATCHTOWER_LABEL_ENABLE: "true"

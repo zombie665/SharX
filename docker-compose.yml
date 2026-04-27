@@ -1,5 +1,5 @@
 # In-stack updater: Watchtower uses the stack bridge network only — never network_mode: host.
-# Panel → http://watchtower:8080/v1/update. (Host-network panel from install.sh: Watchtower on bridge + 127.0.0.1:8080 published.)
+# Panel → http://watchtower:8080/v1/update. (Host-network panel from install.sh: Watchtower on bridge + 127.0.0.1:8081→8080 published.)
 # Set WATCHTOWER_HTTP_API_TOKEN in .env for production (e.g. openssl rand -hex 24).
 # Image: beatkind/watchtower — see https://github.com/beatkind/watchtower
 services:
