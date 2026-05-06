@@ -29,6 +29,63 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="$SCRIPT_DIR"
 COMPOSE_FILE="docker-compose.yml"
 
+# UID:GID для PEM в INSTALL_DIR/cert — не оставляем файлы только root при sudo,
+# плюс .sharx-cert-deploy-owner для cron acme.sh.
+get_cert_deploy_owner() {
+    if [[ -n "${SUDO_UID:-}" && -n "${SUDO_GID:-}" && "${SUDO_UID:-0}" != "0" ]]; then
+        printf '%s:%s\n' "$SUDO_UID" "$SUDO_GID"
+        return
+    fi
+    stat -c '%u:%g' "$INSTALL_DIR" 2>/dev/null || stat -f '%u:%g' "$INSTALL_DIR" 2>/dev/null || printf '0:0\n'
+}
+
+persist_cert_deploy_owner() {
+    printf '%s\n' "$(get_cert_deploy_owner)" >"${INSTALL_DIR}/.sharx-cert-deploy-owner" 2>/dev/null || true
+}
+
+fix_cert_dir_ownership() {
+    local dir="${1:?}"
+    local owner
+    owner="$(get_cert_deploy_owner)"
+    persist_cert_deploy_owner
+    [[ -d "$dir" ]] && chown "$owner" "$dir" 2>/dev/null || true
+    if [[ -f "${dir}/privkey.pem" ]]; then
+        chmod 600 "${dir}/privkey.pem" 2>/dev/null || true
+        chown "$owner" "${dir}/privkey.pem" 2>/dev/null || true
+    fi
+    if [[ -f "${dir}/fullchain.pem" ]]; then
+        chmod 644 "${dir}/fullchain.pem" 2>/dev/null || true
+        chown "$owner" "${dir}/fullchain.pem" 2>/dev/null || true
+    fi
+    if [[ -f "${dir}/sub-privkey.pem" ]]; then
+        chmod 600 "${dir}/sub-privkey.pem" 2>/dev/null || true
+        chown "$owner" "${dir}/sub-privkey.pem" 2>/dev/null || true
+    fi
+    if [[ -f "${dir}/sub-fullchain.pem" ]]; then
+        chmod 644 "${dir}/sub-fullchain.pem" 2>/dev/null || true
+        chown "$owner" "${dir}/sub-fullchain.pem" 2>/dev/null || true
+    fi
+}
+
+docker_compose_restart_sharx() {
+    (
+        cd "$INSTALL_DIR" || exit 0
+        if docker compose version >/dev/null 2>&1; then
+            docker compose -f "$COMPOSE_FILE" restart sharx
+        elif command -v docker-compose >/dev/null 2>&1; then
+            docker-compose -f "$COMPOSE_FILE" restart sharx
+        fi
+    ) 2>/dev/null || docker restart sharx_app 2>/dev/null || true
+}
+
+build_acme_reloadcmd() {
+    local src="$1"
+    local dst="$2"
+    local idir="$INSTALL_DIR"
+    local cf="$COMPOSE_FILE"
+    echo "cp '${src}/privkey.pem' '${dst}/' && cp '${src}/fullchain.pem' '${dst}/' && chmod 600 '${dst}/privkey.pem' && chmod 644 '${dst}/fullchain.pem' && OWN=\$(cat '${idir}/.sharx-cert-deploy-owner' 2>/dev/null || stat -c '%u:%g' '${idir}' 2>/dev/null || stat -f '%u:%g' '${idir}' 2>/dev/null || echo 0:0) && chown \"\$OWN\" '${dst}/privkey.pem' '${dst}/fullchain.pem' 2>/dev/null || true && cd '${idir}' && ( docker compose -f '${cf}' restart sharx 2>/dev/null || docker-compose -f '${cf}' restart sharx 2>/dev/null || docker restart sharx_app 2>/dev/null || true )"
+}
+
 # Print banner
 print_banner() {
     clear
@@ -559,6 +616,7 @@ setup_ssl_certificate() {
     local acmeCertPath="/root/cert/${domain}"
     mkdir -p "$acmeCertPath"
     mkdir -p "$cert_dir"
+    persist_cert_deploy_owner
     
     # Stop containers to free port 80
     print_info "Временная остановка контейнероto для освобождения порта 80..."
@@ -583,7 +641,7 @@ setup_ssl_certificate() {
     ~/.acme.sh/acme.sh --installcert -d ${domain} \
         --key-file ${acmeCertPath}/privkey.pem \
         --fullchain-file ${acmeCertPath}/fullchain.pem \
-        --reloadcmd "cp ${acmeCertPath}/privkey.pem ${cert_dir}/ && cp ${acmeCertPath}/fullchain.pem ${cert_dir}/ && cd ${INSTALL_DIR} && docker compose restart sharx 2>/dev/null || true" >/dev/null 2>&1
+        --reloadcmd "$(build_acme_reloadcmd "${acmeCertPath}" "${cert_dir}")" >/dev/null 2>&1
     
     if [ $? -ne 0 ]; then
         print_warning "Команда установки сертификата имела проблемы, проверка файлов..."
@@ -595,6 +653,8 @@ setup_ssl_certificate() {
         cp "${acmeCertPath}/privkey.pem" "${cert_dir}/"
         chmod 600 "${cert_dir}/privkey.pem"
         chmod 644 "${cert_dir}/fullchain.pem"
+        fix_cert_dir_ownership "$cert_dir"
+        docker_compose_restart_sharx
         print_success "SSL сертификат успешно установлен!"
     else
         print_error "Файлы сертификата не найдены"
@@ -641,6 +701,7 @@ setup_ip_certificate() {
     local acmeCertDir="/root/cert/ip"
     mkdir -p "$acmeCertDir"
     mkdir -p "$cert_dir"
+    persist_cert_deploy_owner
 
     # Build domain arguments
     local domain_args="-d ${ipv4}"
@@ -691,7 +752,7 @@ setup_ip_certificate() {
     ~/.acme.sh/acme.sh --installcert -d ${ipv4} \
         --key-file "${acmeCertDir}/privkey.pem" \
         --fullchain-file "${acmeCertDir}/fullchain.pem" \
-        --reloadcmd "cp ${acmeCertDir}/privkey.pem ${cert_dir}/ && cp ${acmeCertDir}/fullchain.pem ${cert_dir}/ && cd ${INSTALL_DIR} && docker compose restart sharx 2>/dev/null || true" 2>&1 || true
+        --reloadcmd "$(build_acme_reloadcmd "${acmeCertDir}" "${cert_dir}")" 2>&1 || true
 
     # Verify certificate files exist
     if [[ ! -f "${acmeCertDir}/fullchain.pem" || ! -f "${acmeCertDir}/privkey.pem" ]]; then
@@ -707,6 +768,8 @@ setup_ip_certificate() {
     cp "${acmeCertDir}/privkey.pem" "${cert_dir}/"
     chmod 600 "${cert_dir}/privkey.pem"
     chmod 644 "${cert_dir}/fullchain.pem"
+    fix_cert_dir_ownership "$cert_dir"
+    docker_compose_restart_sharx
     
     print_success "Файлы сертификата успешно установлены"
 
@@ -790,6 +853,7 @@ copy_letsencrypt_certificate() {
     cp "${source_dir}/privkey.pem" "${target_dir}/"
     chmod 600 "${target_dir}/privkey.pem" 2>/dev/null
     chmod 644 "${target_dir}/fullchain.pem" 2>/dev/null
+    fix_cert_dir_ownership "$target_dir"
     
     print_success "Сертификаты скопированы из $source_dir в $target_dir"
     return 0
@@ -1841,6 +1905,7 @@ check_existing_certificates() {
         fi
         chmod 600 "${cert_dir}/privkey.pem" 2>/dev/null
         chmod 644 "${cert_dir}/fullchain.pem" 2>/dev/null
+        fix_cert_dir_ownership "$cert_dir"
     fi
     
     if [[ "$found_cert" == "true" ]]; then
@@ -2560,6 +2625,7 @@ renew_certificate() {
                 cp "${acmeCertPath}/privkey.pem" "${cert_dir}/"
                 chmod 600 "${cert_dir}/privkey.pem"
                 chmod 644 "${cert_dir}/fullchain.pem"
+                fix_cert_dir_ownership "$cert_dir"
                 print_success "Domain certificate renewed successfully!"
             fi
         else
@@ -2584,6 +2650,7 @@ renew_certificate() {
                 cp "${acmeCertDir}/privkey.pem" "${cert_dir}/"
                 chmod 600 "${cert_dir}/privkey.pem"
                 chmod 644 "${cert_dir}/fullchain.pem"
+                fix_cert_dir_ownership "$cert_dir"
                 print_success "IP certificate renewed successfully!"
             fi
         else
@@ -2600,9 +2667,10 @@ renew_certificate() {
         DOMAIN_OR_IP="$SSL_HOST"
     fi
     
-    # Restart services
+    # Bring stack back and reload panel TLS
     cd "$INSTALL_DIR"
     docker compose up -d
+    docker_compose_restart_sharx
     
     print_success "Certificate operation completed!"
 }
@@ -2635,6 +2703,7 @@ setup_new_certificate() {
     # Restart services
     cd "$INSTALL_DIR"
     docker compose up -d
+    docker_compose_restart_sharx
     
     print_success "Certificate setup completed!"
     echo -e "New certificate type: ${GREEN}$CERT_TYPE${NC}"
@@ -2944,6 +3013,7 @@ install_wizard() {
     
     # Create installation directory
     mkdir -p "$INSTALL_DIR/cert"
+    fix_cert_dir_ownership "$INSTALL_DIR/cert"
     
     if [[ "$network_mode" == "host" ]]; then
         create_compose_host "$panel_port" "$sub_port" "$db_password"
