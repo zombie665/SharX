@@ -86,6 +86,77 @@ build_acme_reloadcmd() {
     echo "cp '${src}/privkey.pem' '${dst}/' && cp '${src}/fullchain.pem' '${dst}/' && chmod 600 '${dst}/privkey.pem' && chmod 644 '${dst}/fullchain.pem' && OWN=\$(cat '${idir}/.sharx-cert-deploy-owner' 2>/dev/null || stat -c '%u:%g' '${idir}' 2>/dev/null || stat -f '%u:%g' '${idir}' 2>/dev/null || echo 0:0) && chown \"\$OWN\" '${dst}/privkey.pem' '${dst}/fullchain.pem' 2>/dev/null || true && cd '${idir}' && ( docker compose -f '${cf}' restart sharx 2>/dev/null || docker-compose -f '${cf}' restart sharx 2>/dev/null || docker restart sharx_app 2>/dev/null || true )"
 }
 
+# Приоритет /root/.acme.sh (sudo + root cron), иначе $HOME.
+acme_sh_bin() {
+    if [[ -x "/root/.acme.sh/acme.sh" ]]; then
+        printf '%s\n' "/root/.acme.sh/acme.sh"
+        return 0
+    fi
+    if [[ -x "${HOME}/.acme.sh/acme.sh" ]]; then
+        printf '%s\n' "${HOME}/.acme.sh/acme.sh"
+        return 0
+    fi
+    printf '%s\n' "${HOME}/.acme.sh/acme.sh"
+}
+
+acme_sh_ready() {
+    [[ -x "$(acme_sh_bin)" ]]
+}
+
+# ECDSA-серты в каталоге <имя>_ecc — для installcert и renew нужен --ecc
+acme_subject_is_ecc() {
+    local name="${1:?}"
+    [[ -d "/root/.acme.sh/${name}_ecc" ]] || [[ -d "${HOME}/.acme.sh/${name}_ecc" ]]
+}
+
+acme_ecc_arg() {
+    if acme_subject_is_ecc "$1"; then
+        printf '%s' '--ecc'
+    fi
+}
+
+acme_resolve_source_dir_for_subject() {
+    local primary="$1"
+    local h
+    for h in "/root" "${HOME}"; do
+        if [[ -d "${h}/.acme.sh/${primary}_ecc" ]]; then
+            printf '%s\n' "${h}/.acme.sh/${primary}_ecc"
+            return 0
+        fi
+        if [[ -d "${h}/.acme.sh/${primary}" ]]; then
+            printf '%s\n' "${h}/.acme.sh/${primary}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+acme_copy_from_store_to_pem_paths() {
+    local primary="$1"
+    local chain_pem="$2"
+    local key_pem="$3"
+    local src_dir
+    if ! src_dir=$(acme_resolve_source_dir_for_subject "$primary"); then
+        return 1
+    fi
+    if [[ ! -f "${src_dir}/fullchain.cer" ]] || [[ ! -f "${src_dir}/${primary}.key" ]]; then
+        return 1
+    fi
+    cp "${src_dir}/fullchain.cer" "$chain_pem"
+    cp "${src_dir}/${primary}.key" "$key_pem"
+    chmod 644 "$chain_pem" 2>/dev/null || true
+    chmod 600 "$key_pem" 2>/dev/null || true
+    return 0
+}
+
+acme_rm_subject_dirs() {
+    local primary="$1"
+    local h
+    for h in "/root" "${HOME}"; do
+        rm -rf "${h}/.acme.sh/${primary}" "${h}/.acme.sh/${primary}_ecc" 2>/dev/null || true
+    done
+}
+
 # Print banner
 print_banner() {
     clear
@@ -604,7 +675,7 @@ setup_ssl_certificate() {
     print_info "Настройка SSL сертификата для домена: $domain"
     
     # Check if acme.sh is installed
-    if ! command -v ~/.acme.sh/acme.sh &>/dev/null; then
+    if ! acme_sh_ready; then
         install_acme
         if [ $? -ne 0 ]; then
             print_warning "Ошибка установки acme.sh, пропуск настройки SSL"
@@ -612,6 +683,9 @@ setup_ssl_certificate() {
         fi
     fi
     
+    local acme
+    acme="$(acme_sh_bin)"
+
     # Create certificate directory
     local acmeCertPath="/root/cert/${domain}"
     mkdir -p "$acmeCertPath"
@@ -626,19 +700,21 @@ setup_ssl_certificate() {
     print_info "Выпуск SSL сертификата для ${domain}..."
     print_warning "Примечание: Порт 80 должен быть открыт и доступен из интернета"
     
-    ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt >/dev/null 2>&1
-    ~/.acme.sh/acme.sh --issue -d ${domain} --listen-v6 --standalone --httpport 80 --force
+    "${acme}" --set-default-ca --server letsencrypt >/dev/null 2>&1
+    "${acme}" --issue -d ${domain} --listen-v6 --standalone --httpport 80 --force
     
     if [ $? -ne 0 ]; then
         print_error "Ошибка выпуска сертификата для ${domain}"
         print_warning "Пожалуйста, убедитесь, что порт 80 открыт и домен указывает на этот сервер"
-        rm -rf ~/.acme.sh/${domain} 2>/dev/null
+        acme_rm_subject_dirs "${domain}"
         rm -rf "$acmeCertPath" 2>/dev/null
         return 1
     fi
     
     # Install certificate to acme path
-    ~/.acme.sh/acme.sh --installcert -d ${domain} \
+    local ecc_arg
+    ecc_arg="$(acme_ecc_arg "${domain}")"
+    "${acme}" --installcert -d ${domain} ${ecc_arg} \
         --key-file ${acmeCertPath}/privkey.pem \
         --fullchain-file ${acmeCertPath}/fullchain.pem \
         --reloadcmd "$(build_acme_reloadcmd "${acmeCertPath}" "${cert_dir}")" >/dev/null 2>&1
@@ -647,6 +723,11 @@ setup_ssl_certificate() {
         print_warning "Команда установки сертификата имела проблемы, проверка файлов..."
     fi
     
+    if [[ ! -f "${acmeCertPath}/fullchain.pem" || ! -f "${acmeCertPath}/privkey.pem" ]]; then
+        print_warning "PEM не появились после installcert; копируем из хранилища acme.sh (ECDSA / --ecc)..."
+        acme_copy_from_store_to_pem_paths "${domain}" "${acmeCertPath}/fullchain.pem" "${acmeCertPath}/privkey.pem" || true
+    fi
+
     # Copy certificates to our cert directory
     if [[ -f "${acmeCertPath}/fullchain.pem" && -f "${acmeCertPath}/privkey.pem" ]]; then
         cp "${acmeCertPath}/fullchain.pem" "${cert_dir}/"
@@ -662,7 +743,7 @@ setup_ssl_certificate() {
     fi
     
     # Enable auto-renew
-    ~/.acme.sh/acme.sh --upgrade --auto-upgrade >/dev/null 2>&1
+    "${acme}" --upgrade --auto-upgrade >/dev/null 2>&1
     
     print_success "Сертификат действителен 90 дней с автоматическим обновлением"
     return 0
@@ -678,13 +759,16 @@ setup_ip_certificate() {
     print_warning "Примечание: IP сертификаты действительны ~6 дней и будут автоматически обновляться."
 
     # Check for acme.sh
-    if ! command -v ~/.acme.sh/acme.sh &>/dev/null; then
+    if ! acme_sh_ready; then
         install_acme
         if [ $? -ne 0 ]; then
             print_error "Ошибка установки acme.sh"
             return 1
         fi
     fi
+    
+    local acme
+    acme="$(acme_sh_bin)"
 
     # Validate IP address
     if [[ -z "$ipv4" ]]; then
@@ -726,9 +810,9 @@ setup_ip_certificate() {
 
     # Issue certificate with shortlived profile
     print_info "Выпуск IP сертификата для ${ipv4}..."
-    ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt >/dev/null 2>&1
+    "${acme}" --set-default-ca --server letsencrypt >/dev/null 2>&1
     
-    ~/.acme.sh/acme.sh --issue \
+    "${acme}" --issue \
         ${domain_args} \
         --standalone \
         --server letsencrypt \
@@ -740,25 +824,32 @@ setup_ip_certificate() {
     if [ $? -ne 0 ]; then
         print_error "Ошибка выпуска IP сертификата"
         print_warning "Пожалуйста, убедитесь, что порт 80 доступен из интернета"
-        rm -rf ~/.acme.sh/${ipv4} 2>/dev/null
-        [[ -n "$ipv6" ]] && rm -rf ~/.acme.sh/${ipv6} 2>/dev/null
+        acme_rm_subject_dirs "${ipv4}"
+        [[ -n "$ipv6" ]] && acme_rm_subject_dirs "${ipv6}"
         rm -rf ${acmeCertDir} 2>/dev/null
         return 1
     fi
 
     print_success "Сертификат успешно выпущен, установка..."
 
-    # Install certificate
-    ~/.acme.sh/acme.sh --installcert -d ${ipv4} \
+    # Install certificate (ECDSA / Let's Encrypt IP — каталог *_ecc, нужен --ecc)
+    local ecc_arg
+    ecc_arg="$(acme_ecc_arg "${ipv4}")"
+    "${acme}" --installcert -d ${ipv4} ${ecc_arg} \
         --key-file "${acmeCertDir}/privkey.pem" \
         --fullchain-file "${acmeCertDir}/fullchain.pem" \
         --reloadcmd "$(build_acme_reloadcmd "${acmeCertDir}" "${cert_dir}")" 2>&1 || true
 
+    if [[ ! -f "${acmeCertDir}/fullchain.pem" || ! -f "${acmeCertDir}/privkey.pem" ]]; then
+        print_warning "PEM не появились после installcert; копируем из хранилища acme.sh (ECDSA / --ecc)..."
+        acme_copy_from_store_to_pem_paths "${ipv4}" "${acmeCertDir}/fullchain.pem" "${acmeCertDir}/privkey.pem" || true
+    fi
+
     # Verify certificate files exist
     if [[ ! -f "${acmeCertDir}/fullchain.pem" || ! -f "${acmeCertDir}/privkey.pem" ]]; then
         print_error "Файлы сертификата не найдены после установки"
-        rm -rf ~/.acme.sh/${ipv4} 2>/dev/null
-        [[ -n "$ipv6" ]] && rm -rf ~/.acme.sh/${ipv6} 2>/dev/null
+        acme_rm_subject_dirs "${ipv4}"
+        [[ -n "$ipv6" ]] && acme_rm_subject_dirs "${ipv6}"
         rm -rf ${acmeCertDir} 2>/dev/null
         return 1
     fi
@@ -774,7 +865,7 @@ setup_ip_certificate() {
     print_success "Файлы сертификата успешно установлены"
 
     # Enable auto-upgrade for acme.sh
-    ~/.acme.sh/acme.sh --upgrade --auto-upgrade >/dev/null 2>&1
+    "${acme}" --upgrade --auto-upgrade >/dev/null 2>&1
 
     print_success "IP сертификат успешно установлен и настроен!"
     print_info "Сертификат действителен ~6 дней, автоматически обновляется через cron задачу acme.sh."
@@ -932,7 +1023,8 @@ prompt_and_setup_ssl() {
     fi
     
     # Check acme.sh for existing certificates for this IP
-    if [[ -d "/root/.acme.sh/${server_ip}_ecc" ]] || [[ -d "/root/.acme.sh/${server_ip}" ]]; then
+    if [[ -d "/root/.acme.sh/${server_ip}_ecc" ]] || [[ -d "/root/.acme.sh/${server_ip}" ]] || \
+       [[ -d "${HOME}/.acme.sh/${server_ip}_ecc" ]] || [[ -d "${HOME}/.acme.sh/${server_ip}" ]]; then
         if check_existing_certificates "$server_ip" "$cert_dir"; then
             echo ""
             echo -e "${GREEN}Найден существующий Let's Encrypt сертификат для ${server_ip}${NC}"
@@ -1862,8 +1954,20 @@ check_existing_certificates() {
             found_cert=true
             print_info "Найден существующий ECC сертификат для ${domain_or_ip}"
         fi
+    elif [[ -d "${HOME}/.acme.sh/${domain_or_ip}_ecc" ]]; then
+        acme_cert_path="${HOME}/.acme.sh/${domain_or_ip}_ecc"
+        if [[ -f "${acme_cert_path}/fullchain.cer" && -f "${acme_cert_path}/${domain_or_ip}.key" ]]; then
+            found_cert=true
+            print_info "Найден существующий ECC сертификат для ${domain_or_ip}"
+        fi
     elif [[ -d "/root/.acme.sh/${domain_or_ip}" ]]; then
         acme_cert_path="/root/.acme.sh/${domain_or_ip}"
+        if [[ -f "${acme_cert_path}/fullchain.cer" && -f "${acme_cert_path}/${domain_or_ip}.key" ]]; then
+            found_cert=true
+            print_info "Найден существующий RSA сертификат для ${domain_or_ip}"
+        fi
+    elif [[ -d "${HOME}/.acme.sh/${domain_or_ip}" ]]; then
+        acme_cert_path="${HOME}/.acme.sh/${domain_or_ip}"
         if [[ -f "${acme_cert_path}/fullchain.cer" && -f "${acme_cert_path}/${domain_or_ip}.key" ]]; then
             found_cert=true
             print_info "Найден существующий RSA сертификат для ${domain_or_ip}"
@@ -2600,10 +2704,15 @@ renew_certificate() {
     local cert_dir="$INSTALL_DIR/cert"
     
     # Check if acme.sh is installed
-    if ! command -v ~/.acme.sh/acme.sh &>/dev/null; then
+    if ! acme_sh_ready; then
         print_error "acme.sh is not installed. Cannot renew certificate."
         return 1
     fi
+    
+    local acme
+    acme="$(acme_sh_bin)"
+    local ecc_arg
+    ecc_arg="$(acme_ecc_arg "$DOMAIN_OR_IP")"
     
     print_info "Renewing certificate via acme.sh..."
     
@@ -2615,11 +2724,14 @@ renew_certificate() {
         cd "$INSTALL_DIR"
         docker compose down 2>/dev/null || true
         
-        ~/.acme.sh/acme.sh --renew -d "$DOMAIN_OR_IP" --force
+        "${acme}" --renew -d "$DOMAIN_OR_IP" --force ${ecc_arg}
         
         if [ $? -eq 0 ]; then
             # Copy renewed certificates
             local acmeCertPath="/root/cert/${DOMAIN_OR_IP}"
+            if [[ ! -f "${acmeCertPath}/fullchain.pem" || ! -f "${acmeCertPath}/privkey.pem" ]]; then
+                acme_copy_from_store_to_pem_paths "${DOMAIN_OR_IP}" "${acmeCertPath}/fullchain.pem" "${acmeCertPath}/privkey.pem" || true
+            fi
             if [[ -f "${acmeCertPath}/fullchain.pem" && -f "${acmeCertPath}/privkey.pem" ]]; then
                 cp "${acmeCertPath}/fullchain.pem" "${cert_dir}/"
                 cp "${acmeCertPath}/privkey.pem" "${cert_dir}/"
@@ -2640,11 +2752,14 @@ renew_certificate() {
         cd "$INSTALL_DIR"
         docker compose down 2>/dev/null || true
         
-        ~/.acme.sh/acme.sh --renew -d "$DOMAIN_OR_IP" --force
+        "${acme}" --renew -d "$DOMAIN_OR_IP" --force ${ecc_arg}
         
         if [ $? -eq 0 ]; then
             # Copy renewed certificates
             local acmeCertDir="/root/cert/ip"
+            if [[ ! -f "${acmeCertDir}/fullchain.pem" || ! -f "${acmeCertDir}/privkey.pem" ]]; then
+                acme_copy_from_store_to_pem_paths "${DOMAIN_OR_IP}" "${acmeCertDir}/fullchain.pem" "${acmeCertDir}/privkey.pem" || true
+            fi
             if [[ -f "${acmeCertDir}/fullchain.pem" && -f "${acmeCertDir}/privkey.pem" ]]; then
                 cp "${acmeCertDir}/fullchain.pem" "${cert_dir}/"
                 cp "${acmeCertDir}/privkey.pem" "${cert_dir}/"
@@ -2747,7 +2862,7 @@ uninstall() {
     read -p "Удалить сертификаты acme.sh? [y/N]: " remove_acme
     if [[ "$remove_acme" == "y" || "$remove_acme" == "Y" ]]; then
         rm -rf /root/cert 2>/dev/null || true
-        rm -rf ~/.acme.sh 2>/dev/null || true
+        rm -rf /root/.acme.sh "${HOME}/.acme.sh" 2>/dev/null || true
         print_info "Сертификаты acme.sh удалены"
     fi
     
