@@ -3055,29 +3055,29 @@ install_wizard() {
     install_docker
     install_docker_compose
     
-    # Step 2: Network mode
-    echo ""
-    echo -e "${PURPLE}[Шаг 2/7]${NC} Настройка сети"
-    echo -e "${CYAN}Выберите режим сети:${NC}"
-    echo "1) Сеть хоста (рекомендуется для опытных пользователей)"
-    echo "   - Прямой доступ ко всем портам"
-    echo "   - Лучшая производительность"
-    echo "   - Требует ручной настройки портов в панели"
-    echo ""
-    echo "2) Мостовая сеть с пробросом портов (рекомендуется)"
-    echo "   - Изолированные контейнеры"
-    echo "   - Удобное управление портами"
-    echo "   - Нужно вручную открывать входящие порты"
-    echo ""
-    read -p "Выберите [1-2, по умолчанию: 2]: " network_choice
-    network_choice=${network_choice:-2}
+#    # Step 2: Network mode
+#    echo ""
+#    echo -e "${PURPLE}[Шаг 2/7]${NC} Настройка сети"
+#    echo -e "${CYAN}Выберите режим сети:${NC}"
+#    echo "1) Сеть хоста (рекомендуется для опытных пользователей)"
+#    echo "   - Прямой доступ ко всем портам"
+#    echo "   - Лучшая производительность"
+#    echo "   - Требует ручной настройки портов в панели"
+#    echo ""
+#    echo "2) Мостовая сеть с пробросом портов (рекомендуется)"
+#    echo "   - Изолированные контейнеры"
+#    echo "   - Удобное управление портами"
+#    echo "   - Нужно вручную открывать входящие порты"
+#    echo ""
+#    read -p "Выберите [1-2, по умолчанию: 2]: " network_choice
+#    network_choice=${network_choice:-2}
     
-    local network_mode="bridge"
-    if [[ "$network_choice" == "1" ]]; then
-        network_mode="host"
-    fi
+    local network_mode="host"
+#    if [[ "$network_choice" == "1" ]]; then
+#        network_mode="host"
+#    fi
     
-    # Step 3: Port configuration
+    # Step 2: Port configuration
     echo ""
     echo -e "${PURPLE}[Шаг 3/7]${NC} Настройка портов"
     read -p "Порт панели [$DEFAULT_PANEL_PORT]: " panel_port

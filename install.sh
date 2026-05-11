@@ -3057,26 +3057,26 @@ install_wizard() {
     install_docker_compose
     
     # Step 2: Network mode
-    echo ""
-    echo -e "${PURPLE}[Step 2/7]${NC} Network Configuration"
-    echo -e "${CYAN}Choose network mode:${NC}"
-    echo "1) Host network (recommended for advanced users)"
-    echo "   - Direct access to all ports"
-    echo "   - Better performance"
-    echo "   - Requires manual port configuration in panel"
-    echo ""
-    echo "2) Bridge network with port mapping (recommended)"
-    echo "   - Isolated containers"
-    echo "   - Easy port management"
-    echo "   - Need to expose inbound ports manually"
-    echo ""
-    read -p "Select [1-2, default: 2]: " network_choice
-    network_choice=${network_choice:-2}
+#    echo ""
+#    echo -e "${PURPLE}[Step 2/7]${NC} Network Configuration"
+#    echo -e "${CYAN}Choose network mode:${NC}"
+#    echo "1) Host network (recommended for advanced users)"
+#    echo "   - Direct access to all ports"
+#    echo "   - Better performance"
+#    echo "   - Requires manual port configuration in panel"
+#    echo ""
+#    echo "2) Bridge network with port mapping (recommended)"
+#    echo "   - Isolated containers"
+#    echo "   - Easy port management"
+#   echo "   - Need to expose inbound ports manually"
+#    echo ""
+#    read -p "Select [1-2, default: 2]: " network_choice
+#    network_choice=${network_choice:-2}
     
-    local network_mode="bridge"
-    if [[ "$network_choice" == "1" ]]; then
-        network_mode="host"
-    fi
+    local network_mode="host"
+#    if [[ "$network_choice" == "1" ]]; then
+#        network_mode="host"
+#    fi
     
     # Step 3: Port configuration
     echo ""
