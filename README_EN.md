@@ -4,7 +4,7 @@
 
 ## Welcome to SharX
 
-**SharX** is a fork of the original **3XUI** panel with enhanced features and monitoring capabilities.
+**SharX** is a modern multi-node Xray management platform with Docker-first deployment, observability hooks, and a visual subscription page builder.
 
 This version brings a modern, Docker-first architecture, **multi-node** workers, a **visual subscription page builder**, **encrypted cookie web sessions** (`web/web.go`), and **optional observability**: Prometheus text metrics at `{basePath}panel/metrics`, optional Loki / VictoriaMetrics endpoints in panel settings, and a downloadable Grafana dashboard JSON for your own stack.
 
@@ -34,7 +34,7 @@ This version brings a modern, Docker-first architecture, **multi-node** workers,
 
 ### PostgreSQL database
 - **Production datastore**: The panel runtime uses **PostgreSQL** (GORM + SQL migrations in `database/`).
-- **Legacy import**: A built-in **SQLite → PostgreSQL** migration tool is available for importing old 3XUI SQLite dumps (`web/service/migration.go`).
+- **Legacy import**: A built-in **SQLite → PostgreSQL** migration tool is available for importing legacy panel SQLite dumps (`web/service/migration.go`).
 
 ### Observability (optional; not a bundled Grafana stack)
 - **Prometheus scrape**: Metrics are exposed in Prometheus text format at `{basePath}panel/metrics` (`web/web.go`, `web/service/metrics.go`).
@@ -73,14 +73,14 @@ This version brings a modern, Docker-first architecture, **multi-node** workers,
 ### One-Line Install
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/konstpic/3x-ui-new/main/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/konstpic/SharX/main/install.sh)
 ```
 
 Or clone and run:
 
 ```bash
-git clone https://github.com/konstpic/3x-ui-new.git
-cd 3x-ui-new
+git clone https://github.com/konstpic/SharX.git
+cd SharX
 sudo bash install.sh
 ```
 
@@ -134,22 +134,24 @@ sudo bash install.sh
 
 ### Update Panel
 
-The stack includes **Watchtower** (`sharx_watchtower`). The panel calls its HTTP API using `XUI_DOCKER_UPDATER_URL` and `XUI_DOCKER_UPDATER_TOKEN` (no public port) to pull a new `sharx` image labeled `com.centurylinklabs.watchtower.enable: "true"`. This is what the **in-panel update button** typically triggers. For production, set a strong shared secret in `.env` as `WATCHTOWER_HTTP_API_TOKEN` (e.g. `openssl rand -hex 24`).
+**Watchtower** (`sharx_watchtower`) runs in the same `docker compose` stack. The panel uses `XUI_DOCKER_UPDATER_URL` and `XUI_DOCKER_UPDATER_TOKEN` to call its HTTP API (no public port) and pull a new `sharx` image with `com.centurylinklabs.watchtower.enable: "true"`. The **in-panel update button** usually goes through this path. For production, set `WATCHTOWER_HTTP_API_TOKEN` in `.env` (e.g. `openssl rand -hex 24`).
 
-You can also update without the UI:
+**Note:** if the panel image was built with `build:` in compose, the image name looks like `sharx-code-sharx` — that is **not** a registry path. Watchtower will `docker pull` that name, Docker Hub will be queried (`library/...`) and the pull fails with 401 or “does not exist”. For production, set a **published image** in `docker-compose.yml`, e.g. `image: registry.konstpic.ru/sharx/sharx:1.1.2` (and remove/comment the `build` for the panel), run `docker login registry.konstpic.ru`, and recreate the container. Then the UI update path and Watchtower can pull new builds.
 
-- **With Docker Compose** in the directory that contains `docker-compose.yml`:
+You can also:
+
+- **With Docker Compose**:
   ```bash
   docker compose pull
   docker compose up -d
   ```
-- **Via the install script** — pulls and recreates `sharx` and `watchtower`:
+- **Via the SharX install script** (if you use that distribution):
   ```bash
   sudo bash install.sh
   # 2) Update Panel
   ```
 
-The panel container is recreated with a new image; your **PostgreSQL** data on the mounted volume is usually **preserved**.
+The panel container is recreated with a new image; your **PostgreSQL** data on the volume is usually **preserved**.
 
 ---
 
@@ -159,8 +161,8 @@ The panel container is recreated with a new image; your **PostgreSQL** data on t
 
 1. **Clone or download this repository**
    ```bash
-   git clone https://github.com/konstpic/3x-ui-new.git
-   cd 3x-ui-new
+   git clone https://github.com/konstpic/SharX.git
+   cd SharX
    ```
 
 2. **Configure Docker Compose**
@@ -285,7 +287,7 @@ The panel container is recreated with a new image; your **PostgreSQL** data on t
    **Verify TLS Configuration:**
    - After saving settings, restart the container:
      ```bash
-     docker-compose restart 3xui
+     docker-compose restart sharx
      ```
    - Access the panel via HTTPS: `https://your-domain.com:2053`
    - Check that the browser shows a valid SSL certificate
@@ -295,9 +297,9 @@ The panel container is recreated with a new image; your **PostgreSQL** data on t
 1. Install the **panel**, then enable **multi-node** mode in settings.
 2. In **Nodes**, use **add node** — copy the **`docker-compose.yml`** snippet from the modal (already filled with **`PANEL_URL`** and **`SECRET_KEY`** from pairing).
 3. On the **worker server**, save it (e.g. `docker-compose.yml`) and run **`docker compose up -d --build`**.
-4. Bind nodes to inbounds, geography, and operations remain **in the web UI** (**Nodes**, **Geography**). `install.sh` only deploys the panel and database, not workers.
+4. Bind nodes to inbounds, geography, and operations remain **in the web UI** (**Nodes**, **Geography**). The SharX install script only deploys the panel and database, not workers.
 
-Details: [sharx-code/node/README.md](../sharx-code/node/README.md).
+Details: [node/README.md](node/README.md).
 
 ### Advanced Configuration
 
@@ -381,13 +383,13 @@ SharX supports comprehensive configuration through environment variables. These 
 |----------|-------------|---------|---------|
 | `XUI_ENABLE_FAIL2BAN` | Enable fail2ban | `true` | `true`, `false` |
 
-**Worker node (not the panel):** the default path is **pairing** via **`SECRET_KEY`** + **`PANEL_URL`** from the panel modal; see [sharx-code/node/README.md](../sharx-code/node/README.md).
+**Worker node (not the panel):** the default path is **pairing** via **`SECRET_KEY`** + **`PANEL_URL`** from the panel modal; see [node/README.md](node/README.md).
 
 **Example docker-compose.yml configuration:**
 
 ```yaml
 services:
-  3xui:
+  sharx:
     environment:
       # Xray settings
       XRAY_VMESS_AEAD_FORCED: "false"
@@ -532,6 +534,10 @@ For integrating with SharX panel programmatically, see the complete API referenc
 ### Support
 
 For issues, questions, or contributions, please refer to the project repository.
+
+### Donate
+
+Support SharX development: **[donate.konstpic.ru](https://donate.konstpic.ru/)**
 
 ---
 
