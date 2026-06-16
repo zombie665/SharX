@@ -305,6 +305,29 @@ install_docker_dnf() {
     grep -qxF "net.core.default_qdisc=fq" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-SharX-BBR.conf
     grep -qxF "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-SharX-BBR.conf
     sysctl -p
+	
+	#WAN-MASQ
+	sudo echo "#!/bin/bash" >> /etc/rc.d/rc.local
+	sudo echo "NET_INTF=$(ip route show default | awk '{print $5}') && sudo iptables -t nat -A POSTROUTING -o $NET_INTF -j MASQUERADE" >> /etc/rc.d/rc.local
+	sudo echo "exit 0" >> /etc/rc.d/rc.local
+	sudo ln -s /etc/rc.d/rc.local /etc/rc.local
+	sudo chmod +x /etc/rc.d/rc.local
+	sudo echo "[Unit]
+Description=/etc/rc.d/rc.local Compatibility
+ConditionFileIsExecutable=/etc/rc.d/rc.local
+After=network-online.target
+
+[Service]
+Type=forking
+ExecStart=/etc/rc.d/rc.local
+TimeoutSec=0
+RemainAfterExit=yes
+GuessMainPID=no
+
+[Install]
+WantedBy=multi-user.target" >> /etc/systemd/system/rc-local.service
+	sudo systemctl daemon-reload
+	sudo systemctl enable --now rc-local
 }
 
 # Install Docker - CentOS/RHEL
