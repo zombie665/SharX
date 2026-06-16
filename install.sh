@@ -298,7 +298,7 @@ install_docker_dnf() {
     dnf install -y dnf-plugins-core
     
     # Add Docker repository
-    dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+    sudo dnf config-manager addrepo --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo
     
     # Install Docker
     dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
