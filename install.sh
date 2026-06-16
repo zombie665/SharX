@@ -279,6 +279,13 @@ install_docker_apt() {
     grep -qxF "net.core.default_qdisc=fq" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-SharX-BBR.conf
     grep -qxF "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-SharX-BBR.conf
     sysctl -p
+	
+	# WAN-MASQ
+	sudo echo "NET_INTF=$(ip route show default | awk '{print $5}') && sudo iptables -t nat -A POSTROUTING -o $NET_INTF -j MASQUERADE" >> /etc/rc.local
+	sudo echo "exit 0" >> /etc/rc.local
+	sudo chmod +x /etc/rc.local
+	sudo systemctl enable rc-local
+	sudo systemctl start rc-local
 }
 
 # Install Docker - Fedora
