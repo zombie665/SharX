@@ -281,6 +281,7 @@ install_docker_apt() {
     sysctl -p
 	
 	# WAN-MASQ
+	sudo echo "#!/bin/sh -e" >> /etc/rc.local
 	sudo echo "NET_INTF=$(ip route show default | awk '{print $5}') && sudo iptables -t nat -A POSTROUTING -o $NET_INTF -j MASQUERADE" >> /etc/rc.local
 	sudo echo "exit 0" >> /etc/rc.local
 	sudo chmod +x /etc/rc.local
