@@ -282,7 +282,7 @@ install_docker_apt() {
 	
 	# WAN-MASQ
 	sudo echo "#!/bin/sh -e" >> /etc/rc.local
-	sudo echo "NET_INTF=$(ip route show default | awk '{print $5}') && sudo iptables -t nat -A POSTROUTING -o $NET_INTF -j MASQUERADE" >> /etc/rc.local
+	sudo echo "iptables -t nat -A POSTROUTING -o $(ip route show default | awk '{print $5}') -j MASQUERADE" >> /etc/rc.local
 	sudo echo "exit 0" >> /etc/rc.local
 	sudo chmod +x /etc/rc.local
 	sudo systemctl enable rc-local
@@ -310,7 +310,7 @@ install_docker_dnf() {
 	
 	# WAN-MASQ
 	sudo echo "#!/bin/bash" >> /etc/rc.d/rc.local
-	sudo echo "NET_INTF=$(ip route show default | awk '{print $5}') && sudo iptables -t nat -A POSTROUTING -o $NET_INTF -j MASQUERADE" >> /etc/rc.d/rc.local
+	sudo echo "iptables -t nat -A POSTROUTING -o $(ip route show default | awk '{print $5}') -j MASQUERADE" >> /etc/rc.d/rc.local
 	sudo echo "exit 0" >> /etc/rc.d/rc.local
 	sudo ln -s /etc/rc.d/rc.local /etc/rc.local
 	sudo chmod +x /etc/rc.d/rc.local
@@ -347,7 +347,7 @@ install_docker_pacman() {
 	
 	# WAN-MASQ
 	sudo echo "#!/bin/bash" >> /etc/rc.local
-	sudo echo "NET_INTF=$(ip route show default | awk '{print $5}') && sudo iptables -t nat -A POSTROUTING -o $NET_INTF -j MASQUERADE" >> /etc/rc.local
+	sudo echo "iptables -t nat -A POSTROUTING -o $(ip route show default | awk '{print $5}') -j MASQUERADE" >> /etc/rc.local
 	sudo echo "exit 0" >> /etc/rc.local
 	sudo chmod +x /etc/rc.local
 	sudo echo "[Unit]
