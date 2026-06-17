@@ -341,7 +341,7 @@ install_docker_yum() {
     dnf install -y yum-utils
     
     # Add Docker repository
-    dnf-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+    sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
     
     # Install Docker
     dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
