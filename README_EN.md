@@ -102,7 +102,6 @@ The install script automatically:
 |--------------|-----------------|
 | Ubuntu/Debian | apt |
 | Fedora | dnf |
-| CentOS/RHEL | yum |
 | Arch Linux | pacman |
 | Alpine | apk |
 | openSUSE | zypper |

@@ -98,7 +98,6 @@ sudo ./install_ru.sh
 |-------------|-------------------|
 | Ubuntu/Debian | apt |
 | Fedora | dnf |
-| CentOS/RHEL | yum |
 | Arch Linux | pacman |
 | Alpine | apk |
 | openSUSE | zypper |
