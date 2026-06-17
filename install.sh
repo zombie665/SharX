@@ -332,34 +332,6 @@ WantedBy=multi-user.target" >> /etc/systemd/system/rc-local.service
 	sudo systemctl enable --now rc-local
 }
 
-# Install Docker - CentOS/RHEL
-install_docker_yum() {
-    # Remove old versions
-    #dnf remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine 2>/dev/null || true
-    
-    # Install prerequisites
-    #dnf install -y yum-utils
-	#dnf install dnf-plugins-core
-    
-    # Add Docker repository
-    #dnf config-manager --add-repo=https://download.docker.com/linux/fedora/docker-ce.repo
-    
-    # Install Docker
-    #dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-    # Enable BBR
-    #grep -qxF "net.core.default_qdisc=fq" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-SharX-BBR.conf
-    #grep -qxF "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-SharX-BBR.conf
-    #sysctl -p
-	
-	# WAN-MASQ
-	#sudo echo "NET_INTF=$(ip route show default | awk '{print $5}') && sudo iptables -t nat -A POSTROUTING -o $NET_INTF -j MASQUERADE" >> /etc/rc.d/rc.local
-	#sudo echo "exit 0" >> /etc/rc.d/rc.local
-	#sudo chmod +x /etc/rc.d/rc.local
-	#sudo systemctl enable rc-local
-	#sudo systemctl start rc-local
-}
-
 # Install Docker - Arch Linux
 install_docker_pacman() {
     # Update system
