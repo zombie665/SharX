@@ -335,16 +335,16 @@ WantedBy=multi-user.target" >> /etc/systemd/system/rc-local.service
 # Install Docker - CentOS/RHEL
 install_docker_yum() {
     # Remove old versions
-    yum remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine 2>/dev/null || true
+    dnf remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine 2>/dev/null || true
     
     # Install prerequisites
-    yum install -y yum-utils
+    dnf install -y yum-utils
     
     # Add Docker repository
-    yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+    dnf-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
     
     # Install Docker
-    yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
     # Enable BBR
     grep -qxF "net.core.default_qdisc=fq" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-SharX-BBR.conf
