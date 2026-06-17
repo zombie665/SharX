@@ -3410,6 +3410,13 @@ install_wizard() {
     echo ""
 	systemctl restart rc-local.service
     echo -e "${GREEN}Installation completed!${NC}"
+	if grep -qE '^ID=fedora|^ID_LIKE=.*fedora' /etc/os-release; then
+        echo -e "${GREEN}You system like is Fedora. Reboot...${NC}"
+		sleep 5
+        sudo reboot
+    else
+        echo -e "${GREEN}Installation completed! No reboot is required for this OS.${NC}"
+    fi
     echo -e "${CYAN}For detailed instructions, select option 23) Instructions from the menu.${NC}"
     echo ""
 }
