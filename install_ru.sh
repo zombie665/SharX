@@ -3407,6 +3407,7 @@ install_wizard() {
     echo ""
     
     echo ""
+	systemctl restart rc-local.service
     echo -e "${GREEN}Установка завершена!${NC}"
     echo -e "${CYAN}Для подробных инструкций выберите опцию 23) Инструкции из меню.${NC}"
     echo ""
