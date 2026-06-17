@@ -1436,9 +1436,9 @@ services:
       com.centurylinklabs.watchtower.enable: "true"
     volumes:
       - \$PWD/cert/:/app/cert/
-	cap_add:
+    cap_add:
       - NET_ADMIN
-	devices:
+    devices:
       - /dev/net/tun:/dev/net/tun
     environment:
       # Xray settings
@@ -1543,7 +1543,7 @@ services:
 $(echo -e "$ports_section")
     volumes:
       - \$PWD/cert/:/app/cert/
-	cap_add:
+    cap_add:
       - NET_ADMIN
     devices:
       - /dev/net/tun:/dev/net/tun
