@@ -400,6 +400,18 @@ install_docker_apk() {
     
     # Add to boot
     rc-update add docker boot
+	
+	# Enable BBR
+    grep -qxF "net.core.default_qdisc=fq" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-SharX-BBR.conf
+    grep -qxF "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-SharX-BBR.conf
+    sysctl -p
+
+    # WAN-MASQ
+    rc-update add local default
+    echo "#!/bin/sh" >> /etc/local.d/nat-setup.start
+    echo "iptables -t nat -A POSTROUTING -o $(ip route show default | awk '{print $5}') -j MASQUERADE" >> /etc/local.d/nat-setup.start
+    chmod +x /etc/local.d/nat-setup.start
+    echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf && sysctl -p
 }
 
 # Install Docker - openSUSE
