@@ -339,6 +339,7 @@ install_docker_yum() {
     
     # Install prerequisites
     dnf install -y yum-utils
+	sudo dnf install dnf-plugins-core
     
     # Add Docker repository
     sudo dnf config-manager --add-repo=https://download.docker.com/linux/fedora/docker-ce.repo
