@@ -3410,6 +3410,7 @@ install_wizard() {
 	systemctl restart rc-local.service
 	if grep -qE '^ID=fedora|^ID_LIKE=.*fedora' /etc/os-release; then
         echo "Система определена как Fedora. Выполняется перезагрузка..."
+		sleep 5
         sudo reboot
     else
         echo "Завершено. Перезагрузка для этой ОС не нужна."
