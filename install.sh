@@ -1436,6 +1436,10 @@ services:
       com.centurylinklabs.watchtower.enable: "true"
     volumes:
       - \$PWD/cert/:/app/cert/
+	cap_add:
+      - NET_ADMIN
+	devices:
+      - /dev/net/tun:/dev/net/tun
     environment:
       # Xray settings
       XRAY_VMESS_AEAD_FORCED: "false"
