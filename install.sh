@@ -308,7 +308,7 @@ install_docker_dnf() {
     grep -qxF "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-SharX-BBR.conf
     sysctl -p
 	
-	#WAN-MASQ
+	# WAN-MASQ
 	sudo echo "#!/bin/bash" >> /etc/rc.d/rc.local
 	sudo echo "NET_INTF=$(ip route show default | awk '{print $5}') && sudo iptables -t nat -A POSTROUTING -o $NET_INTF -j MASQUERADE" >> /etc/rc.d/rc.local
 	sudo echo "exit 0" >> /etc/rc.d/rc.local
@@ -335,21 +335,29 @@ WantedBy=multi-user.target" >> /etc/systemd/system/rc-local.service
 # Install Docker - CentOS/RHEL
 install_docker_yum() {
     # Remove old versions
-    yum remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine 2>/dev/null || true
+    #dnf remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine 2>/dev/null || true
     
     # Install prerequisites
-    yum install -y yum-utils
+    #dnf install -y yum-utils
+	#dnf install dnf-plugins-core
     
     # Add Docker repository
-    yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+    #dnf config-manager --add-repo=https://download.docker.com/linux/fedora/docker-ce.repo
     
     # Install Docker
-    yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    #dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
     # Enable BBR
-    grep -qxF "net.core.default_qdisc=fq" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-SharX-BBR.conf
-    grep -qxF "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-SharX-BBR.conf
-    sysctl -p
+    #grep -qxF "net.core.default_qdisc=fq" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-SharX-BBR.conf
+    #grep -qxF "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-SharX-BBR.conf
+    #sysctl -p
+	
+	# WAN-MASQ
+	#sudo echo "NET_INTF=$(ip route show default | awk '{print $5}') && sudo iptables -t nat -A POSTROUTING -o $NET_INTF -j MASQUERADE" >> /etc/rc.d/rc.local
+	#sudo echo "exit 0" >> /etc/rc.d/rc.local
+	#sudo chmod +x /etc/rc.d/rc.local
+	#sudo systemctl enable rc-local
+	#sudo systemctl start rc-local
 }
 
 # Install Docker - Arch Linux
@@ -364,6 +372,25 @@ install_docker_pacman() {
     grep -qxF "net.core.default_qdisc=fq" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-SharX-BBR.conf
     grep -qxF "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-SharX-BBR.conf
     sysctl -p
+	
+	# WAN-MASQ
+	sudo echo "#!/bin/bash" >> /etc/rc.local
+	sudo echo "NET_INTF=$(ip route show default | awk '{print $5}') && sudo iptables -t nat -A POSTROUTING -o $NET_INTF -j MASQUERADE" >> /etc/rc.local
+	sudo echo "exit 0" >> /etc/rc.local
+	sudo chmod +x /etc/rc.local
+	sudo echo "[Unit]
+Description=/etc/rc.local Compatibility
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/etc/rc.local
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target" >> /etc/systemd/system/rc-local.service
+	sudo systemctl daemon-reload
+	sudo systemctl enable --now rc-local
 }
 
 # Install Docker - Alpine

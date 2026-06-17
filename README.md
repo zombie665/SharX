@@ -60,7 +60,6 @@ The install script supports multiple Linux distributions and automatically:
 |--------------|-----------------|
 | Ubuntu/Debian | apt |
 | Fedora | dnf |
-| CentOS/RHEL | yum |
 | Arch Linux | pacman |
 | Alpine | apk |
 | openSUSE | zypper |
