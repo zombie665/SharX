@@ -339,6 +339,17 @@ WantedBy=multi-user.target" >> /etc/systemd/system/rc-local.service
 install_docker_pacman() {
     # Update system
     pacman -Syu --noconfirm
+		echo -e "${GREEN}The upgdate is complete. A system reboot is required. If a reboot has already been performed and the installation script has been run again, then press N.${NC}"
+	read -rp "Reboot now? [y/n]: " answer
+     case "$answer" in
+         [Yy]|[Дд])
+             echo "Перезагрузка..."
+             reboot
+             ;;
+         *)
+             echo "${GREEN}Reboot cancelled. Continue working....${NC}"
+             ;;
+     esac
     
     # Install Docker
     pacman -S --noconfirm docker docker-compose
