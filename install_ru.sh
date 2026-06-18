@@ -3420,7 +3420,7 @@ install_wizard() {
     echo ""
 	echo -e "${CYAN}Для подробных инструкций выберите опцию 23) Инструкции из меню.${NC}"
 	echo -e "${GREEN}Установка завершена!${NC}"
-	. /etc/os-release && case "$ID" in fedora|alpine) echo -e "${GREEN}Для Fedora/Alpine требуется перезагрузка! Перезагрузка через 5...${NC}" && sleep 5 && reboot ;; ubuntu|debian) systemctl restart rc-local.service ;; esac
+	. /etc/os-release && case "$ID" in fedora|alpine|arch) echo -e "${GREEN}Для Fedora/Alpine/Arch требуется перезагрузка! Перезагрузка через 5...${NC}" && sleep 5 && reboot ;; ubuntu|debian) systemctl restart rc-local.service ;; esac
 }
 
 # Main menu

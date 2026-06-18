@@ -3422,7 +3422,7 @@ install_wizard() {
     echo ""
 	echo -e "${GREEN}Installation completed!${NC}"
 	echo -e "${CYAN}For detailed instructions, select option 23) Instructions from the menu.${NC}"
-	. /etc/os-release && case "$ID" in fedora|alpine) echo -e "${GREEN}For Fedora/Alpine reboot needed! Reboot after 5...${NC}" && sleep 5 && reboot ;; ubuntu|debian) systemctl restart rc-local.service ;; esac
+	. /etc/os-release && case "$ID" in fedora|alpine|arch) echo -e "${GREEN}For Fedora/Alpine/Arch reboot needed! Reboot after 5...${NC}" && sleep 5 && reboot ;; ubuntu|debian) systemctl restart rc-local.service ;; esac
     echo ""
 }
 
