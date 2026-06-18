@@ -279,6 +279,8 @@ install_docker_apt() {
     sysctl -p
 	
 	# WAN-MASQ
+	grep -qxF "net.ipv4.ip_forward=1" /etc/sysctl.d/99-SharX-ipv4fwd.conf || echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-SharX-ipv4fwd.conf
+	sysctl -p
 	sudo echo "#!/bin/sh -e" >> /etc/rc.local
 	sudo echo "iptables -t nat -A POSTROUTING -o $(ip route show default | awk '{print $5}') -j MASQUERADE" >> /etc/rc.local
 	sudo echo "exit 0" >> /etc/rc.local
@@ -307,6 +309,7 @@ install_docker_dnf() {
     sysctl -p
 	
 	# WAN-MASQ
+	grep -qxF "net.ipv4.ip_forward=1" /etc/sysctl.d/99-SharX-ipv4fwd.conf || echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-SharX-ipv4fwd.conf
 	sudo echo "#!/bin/bash" >> /etc/rc.d/rc.local
 	sudo echo "iptables -t nat -A POSTROUTING -o $(ip route show default | awk '{print $5}') -j MASQUERADE" >> /etc/rc.d/rc.local
 	sudo echo "exit 0" >> /etc/rc.d/rc.local
@@ -334,6 +337,17 @@ WantedBy=multi-user.target" >> /etc/systemd/system/rc-local.service
 install_docker_pacman() {
     # Update system
     pacman -Syu --noconfirm
+	echo -e "${GREEN}Обновление завершено. Требуется перезагрузка системы. Если перезгрузка уже производилась и скрипт установки запущен повторно ТО нажмите N${NC}"
+	read -rp "Перезагрузить сейчас? [y/n]: " answer
+     case "$answer" in
+         [Yy]|[Дд])
+             echo "Перезагрузка..."
+             reboot
+             ;;
+         *)
+             echo "${GREEN}Перезагрузка отменена. Продолжаем работу...${NC}"
+             ;;
+     esac
     
     # Install Docker
     pacman -S --noconfirm docker docker-compose
@@ -341,14 +355,14 @@ install_docker_pacman() {
     # Enable BBR
     grep -qxF "net.core.default_qdisc=fq" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-SharX-BBR.conf
     grep -qxF "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-SharX-BBR.conf
-    sysctl -p
 	
-	# WAN-MASQ
-	sudo echo "#!/bin/bash" >> /etc/rc.local
-	sudo echo "iptables -t nat -A POSTROUTING -o $(ip route show default | awk '{print $5}') -j MASQUERADE" >> /etc/rc.local
-	sudo echo "exit 0" >> /etc/rc.local
-	sudo chmod +x /etc/rc.local
-	sudo echo "[Unit]
+    # WAN-MASQ
+    grep -qxF "net.ipv4.ip_forward=1" /etc/sysctl.d/99-SharX-ipv4fwd.conf || echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-SharX-ipv4fwd.conf
+    sudo echo "#!/bin/bash" >> /etc/rc.local
+    sudo echo "iptables -t nat -A POSTROUTING -o $(ip route show default | awk '{print $5}') -j MASQUERADE" >> /etc/rc.local
+    sudo echo "exit 0" >> /etc/rc.local
+    sudo chmod +x /etc/rc.local
+    sudo echo "[Unit]
 Description=/etc/rc.local Compatibility
 After=network.target
 
@@ -378,13 +392,21 @@ install_docker_apk() {
     grep -qxF "net.core.default_qdisc=fq" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-SharX-BBR.conf
     grep -qxF "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-SharX-BBR.conf
     sysctl -p
+	
+	# Enable /dev/net/tun
+	modprobe tun
+	mkdir -p /dev/net
+	[ ! -c /dev/net/tun ] && mknod /dev/net/tun c 10 200
+	chmod 0666 /dev/net/tun
+	echo "tun" >> /etc/modules
 
     # WAN-MASQ
     rc-update add local default
     echo "#!/bin/sh" >> /etc/local.d/nat-setup.start
     echo "iptables -t nat -A POSTROUTING -o $(ip route show default | awk '{print $5}') -j MASQUERADE" >> /etc/local.d/nat-setup.start
     chmod +x /etc/local.d/nat-setup.start
-    echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf && sysctl -p
+    grep -qxF "net.ipv4.ip_forward=1" /etc/sysctl.d/99-SharX-ipv4fwd.conf || echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-SharX-ipv4fwd.conf
+	sysctl -p
 }
 
 # Install Docker - openSUSE
@@ -3407,16 +3429,9 @@ install_wizard() {
     echo ""
     
     echo ""
-	systemctl restart rc-local.service
-	if grep -qE '^ID=fedora|^ID_LIKE=.*fedora' /etc/os-release; then
-        echo -e "${GREEN}Установка завершена. Система определена как Fedora. Выполняется перезагрузка...${NC}"
-		sleep 5
-        sudo reboot
-    else
-        echo -e "${GREEN}Установка завершена. Перезагрузка этой ОС не требуется.${NC}"
-    fi
-    echo -e "${CYAN}Для подробных инструкций выберите опцию 23) Инструкции из меню.${NC}"
-    echo ""
+	echo -e "${CYAN}Для подробных инструкций выберите опцию 23) Инструкции из меню.${NC}"
+	echo -e "${GREEN}Установка завершена!${NC}"
+	. /etc/os-release && case "$ID" in fedora|alpine|arch) echo -e "${GREEN}Для Fedora/Alpine/Arch требуется перезагрузка! Перезагрузка через 5...${NC}" && sleep 5 && reboot ;; ubuntu|debian) systemctl restart rc-local.service ;; esac
 }
 
 # Main menu
