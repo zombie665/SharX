@@ -3409,7 +3409,7 @@ install_wizard() {
     echo ""
 	systemctl restart rc-local.service
 	if grep -qE '^ID=fedora|^ID_LIKE=.*fedora' /etc/os-release; then
-        echo -e "${GREEN}Установка заверщена. Система определена как Fedora. Выполняется перезагрузка...${NC}"
+        echo -e "${GREEN}Установка завершена. Система определена как Fedora. Выполняется перезагрузка...${NC}"
 		sleep 5
         sudo reboot
     else
