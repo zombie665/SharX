@@ -280,6 +280,7 @@ install_docker_apt() {
 	
 	# WAN-MASQ
 	grep -qxF "net.ipv4.ip_forward=1" /etc/sysctl.d/99-SharX-ipv4fwd.conf || echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-SharX-ipv4fwd.conf
+	sysctl -p
 	sudo echo "#!/bin/sh -e" >> /etc/rc.local
 	sudo echo "iptables -t nat -A POSTROUTING -o $(ip route show default | awk '{print $5}') -j MASQUERADE" >> /etc/rc.local
 	sudo echo "exit 0" >> /etc/rc.local
@@ -343,15 +344,14 @@ install_docker_pacman() {
     # Enable BBR
     grep -qxF "net.core.default_qdisc=fq" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-SharX-BBR.conf
     grep -qxF "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-SharX-BBR.conf
-    sysctl -p
 	
-	# WAN-MASQ
-	grep -qxF "net.ipv4.ip_forward=1" /etc/sysctl.d/99-SharX-ipv4fwd.conf || echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-SharX-ipv4fwd.conf
-	sudo echo "#!/bin/bash" >> /etc/rc.local
-	sudo echo "iptables -t nat -A POSTROUTING -o $(ip route show default | awk '{print $5}') -j MASQUERADE" >> /etc/rc.local
-	sudo echo "exit 0" >> /etc/rc.local
-	sudo chmod +x /etc/rc.local
-	sudo echo "[Unit]
+    # WAN-MASQ
+    grep -qxF "net.ipv4.ip_forward=1" /etc/sysctl.d/99-SharX-ipv4fwd.conf || echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-SharX-ipv4fwd.conf
+    sudo echo "#!/bin/bash" >> /etc/rc.local
+    sudo echo "iptables -t nat -A POSTROUTING -o $(ip route show default | awk '{print $5}') -j MASQUERADE" >> /etc/rc.local
+    sudo echo "exit 0" >> /etc/rc.local
+    sudo chmod +x /etc/rc.local
+    sudo echo "[Unit]
 Description=/etc/rc.local Compatibility
 After=network.target
 
