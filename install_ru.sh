@@ -337,6 +337,17 @@ WantedBy=multi-user.target" >> /etc/systemd/system/rc-local.service
 install_docker_pacman() {
     # Update system
     pacman -Syu --noconfirm
+	echo -e "${GREEN}Обновление завершено. Требуется перезагрузка системы. Если перезгрузка уже производилась и скрипт установки запущен повторно ТО нажмите N${N>read -rp "Перезагрузить сейчас? [y/n]: " answer
+
+     case "$answer" in
+         [Yy]|[Дд])
+             echo "Перезагрузка..."
+             reboot
+             ;;
+         *)
+             echo "Перезагрузка отменена. Продолжаем работу."
+             ;;
+     esac
     
     # Install Docker
     pacman -S --noconfirm docker docker-compose
