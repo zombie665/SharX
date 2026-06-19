@@ -416,6 +416,19 @@ install_docker_apk() {
 install_docker_zypper() {
     # Install Docker
     zypper install -y docker docker-compose
+	
+	# Enable BBR
+    grep -qxF "net.core.default_qdisc=fq" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.core.default_qdisc=fq" >> /etc/sysctl.d/99-SharX-BBR.conf
+    grep -qxF "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.d/99-SharX-BBR.conf || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.d/99-SharX-BBR.conf
+	
+	# WAN-MASQ
+	grep -qxF "net.ipv4.ip_forward=1" /etc/sysctl.d/99-SharX-ipv4fwd.conf || echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-SharX-ipv4fwd.conf
+	sudo mkdir -p /usr/local/sbin
+	echo -e "#!/bin/bash\niptables -t nat -A POSTROUTING -o $(ip route show default | awk '{print $5}') -j MASQUERADE" >> /usr/local/sbin/nat-awg.sh
+	sudo chmod +x /usr/local/sbin/nat-awg.sh
+	sudo echo -e "[Unit]\nDescription=Custom NAT Setup\nAfter=network-online.target\n\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/nat-awg.sh\nRemainAfterExit=yes\n\n[Install]\nWantedBy=multi-user.target" >> /etc/systemd/system/nat-awg.service
+	sudo systemctl daemon-reload
+	sudo systemctl enable --now nat-awg.service
 }
 
 # Install Docker if not present
