@@ -421,7 +421,7 @@ install_docker_zypper() {
 	# WAN-MASQ
 	grep -qxF "net.ipv4.ip_forward=1" /etc/sysctl.d/99-SharX-ipv4fwd.conf || echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-SharX-ipv4fwd.conf
 	sudo mkdir -p /usr/local/sbin
-	echo -e "#!/bin/bash\niptables -t nat -A POSTROUTING -o $(ip route show default | awk '{print $5}') -j MASQUERADE" | sudo tee /usr/local/sbin/nat-awg.sh
+	echo -e "#!/bin/bash\niptables -t nat -A POSTROUTING -o $(ip route show default | awk '{print $5}') -j MASQUERADE" >> /usr/local/sbin/nat-awg.sh
 	sudo chmod +x /usr/local/sbin/nat-awg.sh
 	sudo echo -e "[Unit]\nDescription=Custom NAT Setup\nAfter=network-online.target\n\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/nat-awg.sh\nRemainAfterExit=yes\n\n[Install]\nWantedBy=multi-user.target" >> /etc/systemd/system/nat-awg.service
 	sudo systemctl daemon-reload
