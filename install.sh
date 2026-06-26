@@ -1765,6 +1765,12 @@ warp_uninstall() {
     apt autoremove -y
 }
 
+# Disable ipv6
+disable_ipv6() {
+    grep -qxF "# Disable ipv6\nnet.ipv6.conf.all.disable_ipv6 = 1\nnet.ipv6.conf.default.disable_ipv6 = 1\nnet.ipv6.conf.lo.disable_ipv6 = 1" /etc/sysctl.d/99-SharX-ipv6.conf || echo -e "# Disable ipv6\nnet.ipv6.conf.all.disable_ipv6 = 1\nnet.ipv6.conf.default.disable_ipv6 = 1\nnet.ipv6.conf.lo.disable_ipv6 = 1" > /etc/sysctl.d/99-SharX-ipv6.conf
+    sysctl -p
+}
+
 # Save configuration
 save_config() {
     local panel_port="$1"
@@ -3526,6 +3532,7 @@ main_menu() {
         echo ""
         echo -e "  ${WHITE}── Additionally ──${NC}"
         echo -e "  ${CYAN}50)${NC} WARP install"
+		echo -e "  ${CYAN}51)${NC} Disable ipv6"
         echo -e "  ${RED}98)${NC} Uninstall WARP"
         echo -e "  ${RED}99)${NC} Uninstall Panel"
         echo -e "  ${WHITE}0)${NC}  Exit"
@@ -3586,6 +3593,7 @@ main_menu() {
             
             # Other
             50) warp_install ;;
+			51) disable_ipv6 ;;
             98) warp_uninstall ;;
             99) uninstall ;;
             0) 
